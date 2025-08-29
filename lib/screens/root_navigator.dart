@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'home_screen.dart';
 import 'cart_screen.dart';
 import 'account_screen.dart'; // ← Import your new AccountScreen
+import 'dashboard_screen.dart';
+
 
 class RootNavigator extends StatefulWidget {
   const RootNavigator({super.key});
@@ -15,6 +17,7 @@ class _RootNavigatorState extends State<RootNavigator> {
 
   // Add AccountScreen as a third page
   final List<Widget> _pages = [
+    const DashboardScreen(),
     const HomeScreen(),
     const CartScreen(),
     const AccountScreen(),
@@ -31,6 +34,7 @@ class _RootNavigatorState extends State<RootNavigator> {
         unselectedItemColor: Colors.grey,
         backgroundColor: Colors.white,
         items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Dashboard'),
           BottomNavigationBarItem(
             icon: Icon(Icons.store),
             label: 'Shop',

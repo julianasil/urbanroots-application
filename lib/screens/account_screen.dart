@@ -1,7 +1,10 @@
+// lib/screens/account_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
+import '../providers/order_provider.dart';
 import 'login_screen.dart'; // To navigate back after logout
+import 'orders_screen.dart';
 
 class AccountScreen extends StatelessWidget {
   const AccountScreen({super.key});
@@ -10,6 +13,8 @@ class AccountScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final userProvider = Provider.of<UserProvider>(context);
     final user = userProvider.currentUser;
+    final orderProv = Provider.of<OrderProvider>(context);
+    final ordersCount = orderProv.orders.length;
 
     return Scaffold(
       appBar: AppBar(
@@ -23,9 +28,11 @@ class AccountScreen extends StatelessWidget {
                 children: [
                   CircleAvatar(
                     radius: 40,
+                    backgroundColor: Theme.of(context).colorScheme.primary,
                     child: Text(
-                      user.fullName.substring(0, 1),
-                      style: const TextStyle(fontSize: 32),
+                      (user.fullName.isNotEmpty ? user.fullName.substring(0, 1) : '?')
+                          .toUpperCase(),
+                      style: const TextStyle(fontSize: 32, color: Colors.white),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -38,18 +45,46 @@ class AccountScreen extends StatelessWidget {
                     '@${user.username}',
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
-                  const Divider(height: 32),
-                  ListTile(
-                    leading: const Icon(Icons.email),
-                    title: const Text('Email'),
-                    subtitle: Text('${user.username}@example.com'),
+                  const SizedBox(height: 20),
+                  // Account details
+                  Card(
+                    elevation: 1,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8)),
+                    child: Column(
+                      children: [
+                        ListTile(
+                          leading: const Icon(Icons.email),
+                          title: const Text('Email'),
+                          subtitle: Text('${user.username}@example.com'),
+                        ),
+                        const Divider(height: 1),
+                        ListTile(
+                          leading: const Icon(Icons.person),
+                          title: const Text('Full Name'),
+                          subtitle: Text(user.fullName),
+                        ),
+                        const Divider(height: 1),
+                        // Orders ListTile - navigates to OrdersScreen
+                        ListTile(
+                          leading: const Icon(Icons.receipt_long),
+                          title: const Text('My Orders'),
+                          subtitle: Text('$ordersCount orders'),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const OrdersScreen(),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
                   ),
-                  ListTile(
-                    leading: const Icon(Icons.person),
-                    title: const Text('Full Name'),
-                    subtitle: Text(user.fullName),
-                  ),
+
                   const Spacer(),
+
                   ElevatedButton.icon(
                     icon: const Icon(Icons.logout),
                     label: const Text('Log Out'),
