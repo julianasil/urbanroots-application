@@ -1,3 +1,4 @@
+// lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -51,7 +52,8 @@ class MyApp extends StatelessWidget {
               centerTitle: true,
             ),
           ),
-          home: userProvider.isLoggedIn
+          // Use 'isAuthenticated' which is the correct getter in the new UserProvider
+          home: userProvider.isAuthenticated
               ? const RootNavigator()
               : const LoginScreen(),
         );

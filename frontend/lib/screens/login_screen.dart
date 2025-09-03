@@ -2,8 +2,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
+import '../widgets/auth_layout.dart';
 import 'root_navigator.dart';
-import 'signup_screen.dart';
+// We no longer need to import signup_screen.dart
+// import 'signup_screen.dart'; 
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -20,7 +22,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   String? _errorMessage;
 
-  Future<void> _handleLogin(BuildContext context) async {
+  Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() {
@@ -42,108 +44,64 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } catch (e) {
       setState(() {
-        _errorMessage = e.toString();
+        _errorMessage = 'Failed to log in. Please check your credentials.';
       });
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
-          child: Form(
-            key: _formKey,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text(
-                    'UrbanRoots Login',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF4CAF50),
-                    ),
-                  ),
-                  const SizedBox(height: 40),
-
-                  // Username
-                  TextFormField(
-                    controller: _usernameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Username',
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (value) =>
-                        value == null || value.isEmpty ? 'Enter your username' : null,
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Password
-                  TextFormField(
-                    controller: _passwordController,
-                    decoration: const InputDecoration(
-                      labelText: 'Password',
-                      border: OutlineInputBorder(),
-                    ),
-                    obscureText: true,
-                    validator: (value) =>
-                        value == null || value.isEmpty ? 'Enter your password' : null,
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Error message
-                  if (_errorMessage != null)
-                    Text(
-                      _errorMessage!,
-                      style: const TextStyle(color: Colors.red),
-                    ),
-
-                  const SizedBox(height: 16),
-
-                  // Login button
-                  _isLoading
-                      ? const CircularProgressIndicator()
-                      : ElevatedButton(
-                          onPressed: () => _handleLogin(context),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF4CAF50),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 60,
-                              vertical: 15,
-                            ),
-                          ),
-                          child: const Text('Log In'),
-                        ),
-
-                  const SizedBox(height: 24),
-
-                  // Go to Sign Up
-                  TextButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const SignUpScreen()),
-                      );
-                    },
-                    child: const Text(
-                      "Don't have an account? Sign Up",
-                      style: TextStyle(color: Color(0xFF4CAF50)),
-                    ),
-                  ),
-                ],
+    // The AuthLayout widget from our previous steps is now simplified
+    return AuthLayout(
+      title: 'Welcome Back!',
+      subtitle: 'Log in to your UrbanRoots account',
+      isLoading: _isLoading,
+      errorMessage: _errorMessage,
+      form: Form(
+        key: _formKey,
+        child: Column(
+          children: [
+            TextFormField(
+              controller: _usernameController,
+              decoration: const InputDecoration(
+                labelText: 'Username',
+                prefixIcon: Icon(Icons.person_outline),
+                border: OutlineInputBorder(),
               ),
+              validator: (value) =>
+                  value == null || value.isEmpty ? 'Please enter your username' : null,
             ),
-          ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _passwordController,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: 'Password',
+                prefixIcon: Icon(Icons.lock_outline),
+                border: OutlineInputBorder(),
+              ),
+              validator: (value) =>
+                  value == null || value.isEmpty ? 'Please enter your password' : null,
+            ),
+          ],
         ),
       ),
+      mainButtonText: 'Log In',
+      onMainButtonPressed: _handleLogin,
+      
+      // --- THIS IS THE FIX ---
+      // By removing the secondary button properties, the "Sign Up" link will disappear.
+      //
+      // REMOVE THE FOLLOWING THREE LINES:
+      // secondaryText: "Don't have an account?",
+      // secondaryButtonText: 'Sign Up',
+      // onSecondaryButtonPressed: () { ... },
     );
   }
 }

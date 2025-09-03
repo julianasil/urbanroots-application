@@ -4,6 +4,7 @@ class Product {
   final String description;
   final double price;
   final String imageUrl;
+  //final String ownerId;
 
   Product({
     required this.id,
@@ -11,6 +12,7 @@ class Product {
     required this.description,
     required this.price,
     required this.imageUrl,
+    //required this.ownerId,
   });
 
   factory Product.fromMap(Map<String, dynamic> map) {
@@ -20,6 +22,7 @@ class Product {
       description: map['description'],
       price: map['price'],
       imageUrl: map['image_url'],
+      //ownerId: map['ownerId'] ?? '',
     );
   }
 }

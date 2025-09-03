@@ -37,6 +37,8 @@ dependencies:
   flutter_stripe: ^11.5.0  # example for Stripe
   pay: ^3.2.1            # for Apple/Google Pay
   # other dependencies...
+  http: ^1.1.0
+  flutter_secure_storage: ^9.0.0
 
 
   # The following adds the Cupertino Icons font to your application.
