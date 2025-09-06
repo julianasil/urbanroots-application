@@ -1,7 +1,7 @@
 // lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-
+import 'package:supabase_flutter/supabase_flutter.dart'; 
 import 'providers/order_provider.dart';
 import 'providers/user_provider.dart';
 import 'providers/product_provider.dart';
@@ -9,7 +9,17 @@ import 'providers/cart_provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/root_navigator.dart';
 
-void main() {
+
+
+Future<void> main() async {
+
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await Supabase.initialize(
+    url: 'https://esnnxxoejubjrukpimsh.supabase.co',
+    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVzbm54eG9lanVianJ1a3BpbXNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQwMTA5NTIsImV4cCI6MjA2OTU4Njk1Mn0.pgPf1tyMgu8gKYo7HdKQkhYVAZoxhrBygkgPd1XE0kY',
+  );
+
   runApp(
     MultiProvider(
       providers: [
@@ -22,6 +32,8 @@ void main() {
     ),
   );
 }
+
+final supabase = Supabase.instance.client;
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});

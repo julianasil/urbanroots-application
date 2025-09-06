@@ -1,167 +1,289 @@
 // frontend/lib/screens/account_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../models/user_profile.dart';
 import '../providers/user_provider.dart';
-import '../providers/order_provider.dart';
+import '../services/api_service.dart';
+import 'edit_profile_screen.dart';
 import 'login_screen.dart';
-import 'orders_screen.dart';
+import '../widgets/claim_profile.dart'; // Make sure this import is present
 
-class AccountScreen extends StatelessWidget {
+class AccountScreen extends StatefulWidget {
   const AccountScreen({super.key});
 
   @override
+  State<AccountScreen> createState() => _AccountScreenState();
+}
+
+class _AccountScreenState extends State<AccountScreen> {
+  final ApiService _apiService = ApiService();
+  late Future<UserProfile> _userProfileFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfile();
+  }
+
+  // Reloads the profile data from the API
+  void _loadProfile() {
+    setState(() {
+      _userProfileFuture = _apiService.getMyProfile();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final userProvider = Provider.of<UserProvider>(context);
-    final user = userProvider.currentUser;
-    final orderProv = Provider.of<OrderProvider>(context, listen: false);
-    final ordersCount = orderProv.orders.length;
-
-    const primaryColor = Color(0xFF4CAF50);
-
     return Scaffold(
-      // --- FIX #1: Change the main background color to white ---
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.grey[100], // A soft background color
       appBar: AppBar(
         title: const Text('My Account'),
-        backgroundColor: primaryColor,
-        foregroundColor: Colors.white,
         elevation: 0,
       ),
-      body: user == null
-          ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              padding: const EdgeInsets.all(0),
-              children: [
-                _buildProfileHeader(context, user, primaryColor),
-                const SizedBox(height: 20),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      // --- FIX #2: Change the container color to a soft, light green ---
-                      color: const Color(0xFFF0FDF4),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Column(
-                      children: [
-                        _InfoTile(
-                          icon: Icons.email_outlined,
-                          title: 'Email',
-                          subtitle: user.email.isEmpty ? '(Not set)' : user.email,
-                        ),
-                        _InfoTile(
-                          icon: Icons.person_outline,
-                          title: 'Full Name',
-                          subtitle: user.fullName,
-                        ),
-                        _InfoTile(
-                          icon: Icons.receipt_long_outlined,
-                          title: 'My Orders',
-                          subtitle: '$ordersCount orders',
-                          trailing: const Icon(Icons.chevron_right, color: Colors.grey),
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(builder: (_) => const OrdersScreen()),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 30),
-                Center(
-                  child: TextButton.icon(
-                    icon: Icon(Icons.logout, color: Colors.red[700]),
-                    label: Text(
-                      'Log Out',
-                      style: TextStyle(color: Colors.red[700], fontWeight: FontWeight.bold),
-                    ),
-                    onPressed: () {
-                      Provider.of<UserProvider>(context, listen: false).logout();
-                      Navigator.of(context).pushAndRemoveUntil(
-                        MaterialPageRoute(builder: (_) => const LoginScreen()),
-                        (route) => false,
-                      );
-                    },
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 32),
-                      backgroundColor: Colors.red[50],
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-              ],
-            ),
+      body: FutureBuilder<UserProfile>(
+        future: _userProfileFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return Center(child: Text('Error: ${snapshot.error.toString()}'));
+          }
+          if (!snapshot.hasData) {
+            return const Center(child: Text('No profile data found.'));
+          }
+
+          final userProfile = snapshot.data!;
+
+          // The main UI is a scrollable list
+          return ListView(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 20.0),
+            children: [
+              // 1. A prominent header with the user's avatar and name
+              _buildUserHeader(userProfile),
+              const SizedBox(height: 24),
+
+              // 2. A new, dedicated card for Personal Information
+              _buildPersonalInfoCard(userProfile),
+              const SizedBox(height: 24),
+
+              // 3. The existing card for Business Information
+              _buildBusinessInfoCard(userProfile),
+              const SizedBox(height: 32),
+              
+              _buildLogoutButton(context),
+            ],
+          );
+        },
+      ),
     );
   }
 
-  Widget _buildProfileHeader(BuildContext context, User user, Color primaryColor) {
+  // --- WIDGET BUILDERS ---
+
+  Widget _buildUserHeader(UserProfile profile) {
+    return Column(
+      children: [
+        CircleAvatar(
+          radius: 45,
+          child: Text(profile.fullName.isNotEmpty ? profile.fullName[0].toUpperCase() : '?'),
+        ),
+        const SizedBox(height: 12),
+        Text(profile.fullName, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+        Text('@${profile.username}', style: TextStyle(color: Colors.grey[600])),
+      ],
+    );
+  }
+
+  // --- NEW WIDGET ---
+  // This widget displays the user's personal details in a clean card.
+Widget _buildPersonalInfoCard(UserProfile profile) {
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      // FIX: The outer Padding was removed to match the other card.
+      child: Padding(
+        // FIX: Padding is now consistent with the business info card.
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // FIX: The extra Padding around the title was removed.
+            const Text('Personal Information', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8), // Added for spacing
+            _InfoTile(icon: Icons.email_outlined, title: 'Email', subtitle: profile.email),
+            _InfoTile(icon: Icons.person_outline, title: 'Full Name', subtitle: profile.fullName),
+            _InfoTile(icon: Icons.shield_outlined, title: 'Role', subtitle: profile.role.capitalize()),
+            const SizedBox(height: 16),
+            // --- NEW FEATURE ---
+            // Add a button to edit the personal profile.
+            Center(
+              child: OutlinedButton(
+                onPressed: () {
+                  // TODO: Create and navigate to an "Edit Personal Profile" screen.
+                  // For now, we can just show a snackbar as a placeholder.
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Edit Personal Profile screen not yet implemented.')),
+                  );
+                },
+                child: const Text('Edit Personal Info'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // --- NEW WIDGET ---
+  // This widget now wraps the business profile logic.
+  Widget _buildBusinessInfoCard(UserProfile profile) {
+    final hasBusinessProfile = profile.businessProfile != null;
+
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Business Information', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            if (hasBusinessProfile)
+              _buildProfileDetails(profile.businessProfile!)
+            else
+              _buildCreateOrChooseProfilePrompt(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Displays the details of an existing business profile
+  Widget _buildProfileDetails(BusinessProfile profile) {
+    return Column(
+      children: [
+        _InfoTile(icon: Icons.business, title: 'Company Name', subtitle: profile.companyName ?? 'N/A'),
+        _InfoTile(icon: Icons.phone, title: 'Contact', subtitle: profile.contactNumber),
+        _InfoTile(icon: Icons.location_on_outlined, title: 'Address', subtitle: profile.address),
+        _InfoTile(icon: Icons.work_outline, title: 'Business Type', subtitle: profile.businessType.capitalize()),
+        const SizedBox(height: 16),
+        OutlinedButton(
+          onPressed: () async {
+            final result = await Navigator.push<bool>(context, MaterialPageRoute(builder: (context) => EditProfileScreen(profile: profile)));
+            if (result == true) _loadProfile();
+          },
+          child: const Text('Edit Business Profile'),
+        ),
+      ],
+    );
+  }
+
+  // Displays options for a user without a business profile
+  Widget _buildCreateOrChooseProfilePrompt() {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 24),
-      width: double.infinity,
-      color: Colors.white,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(8),
+      ),
       child: Column(
         children: [
-          CircleAvatar(
-            radius: 45,
-            backgroundColor: primaryColor,
-            child: Text(
-              (user.fullName.isNotEmpty ? user.fullName[0] : '?').toUpperCase(),
-              style: const TextStyle(fontSize: 40, color: Colors.white, fontWeight: FontWeight.bold),
-            ),
+          const Text('Complete your setup to start buying or selling.', textAlign: TextAlign.center),
+          const SizedBox(height: 16),
+          OutlinedButton(
+            onPressed: () async {
+              final result = await Navigator.push<bool>(context, MaterialPageRoute(builder: (context) => const EditProfileScreen()));
+              if (result == true) _loadProfile();
+            },
+            child: const Text('Create a New Profile'),
           ),
-          const SizedBox(height: 12),
-          Text(
-            user.fullName,
-            style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '@${user.username}',
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey[600],
-            ),
+          const SizedBox(height: 8),
+          const Text('OR'),
+          const SizedBox(height: 8),
+          OutlinedButton(
+            onPressed: _showClaimProfileSheet,
+            child: const Text('Choose an Existing Profile'),
           ),
         ],
       ),
     );
   }
+
+  // The method to show the bottom sheet for claiming a profile
+  void _showClaimProfileSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true, // Allows sheet to take up more height
+      builder: (context) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.6, // Start at 60% of screen height
+        maxChildSize: 0.9, // Can be dragged up to 90%
+        builder: (_, controller) => ClaimProfileSheet(
+          scrollController: controller,
+          onProfileClaimed: () {
+            Navigator.of(context).pop();
+            _loadProfile();
+          },
+        ),
+      ),
+    );
+  }
+
+  // The logout button widget
+  Widget _buildLogoutButton(BuildContext context) {
+    return Center(
+      child: TextButton.icon(
+        icon: Icon(Icons.logout, color: Colors.red[700]),
+        label: Text('Log Out', style: TextStyle(color: Colors.red[700], fontWeight: FontWeight.bold)),
+        style: TextButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 30),
+          backgroundColor: Colors.red[50],
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+        onPressed: () async {
+          await Provider.of<UserProvider>(context, listen: false).logout();
+          if (mounted) {
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (context) => const LoginScreen()),
+              (route) => false,
+            );
+          }
+        },
+      ),
+    );
+  }
 }
 
+// A reusable tile for displaying information consistently
 class _InfoTile extends StatelessWidget {
   final IconData icon;
   final String title;
   final String subtitle;
-  final Widget? trailing;
-  final VoidCallback? onTap;
-
-  const _InfoTile({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    this.trailing,
-    this.onTap,
-  });
+  const _InfoTile({required this.icon, required this.title, required this.subtitle});
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      leading: Icon(icon, color: Colors.grey[700]),
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
-      subtitle: Text(subtitle, style: TextStyle(color: Colors.grey[600])),
-      trailing: trailing,
-      onTap: onTap,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: Colors.grey[500], size: 20),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black54)),
+                const SizedBox(height: 2),
+                Text(subtitle, style: TextStyle(color: Colors.grey[800])),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

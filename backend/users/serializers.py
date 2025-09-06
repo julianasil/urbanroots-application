@@ -1,19 +1,29 @@
+# backend/users/serializers.py
 from rest_framework import serializers
-from django.contrib.auth import get_user_model
+from .models import CustomUser, BusinessProfile
 
-User = get_user_model()
+class BusinessProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BusinessProfile
+        # This will include all fields from the BusinessProfile model in the API output.
+        fields = '__all__'
 
 class UserSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = User
-        fields = ["id", "username", "email", "role", "password"]
-        extra_kwargs = {"password": {"write_only": True}}
+    # This tells the serializer to include the full details of the business profile,
+    # not just its ID. It will use the BusinessProfileSerializer defined above.
+    business_profile = BusinessProfileSerializer(read_only=True)
 
-    def create(self, validated_data):
-        user = User.objects.create_user(
-            username=validated_data["username"],
-            email=validated_data["email"],
-            password=validated_data["password"],
-            role=validated_data.get("role", "buyer"),
-        )
-        return user
+    class Meta:
+        model = CustomUser
+        # These are the specific fields from your CustomUser model that will be
+        # exposed in the API.
+        fields = [
+            'id', 
+            'email', 
+            'username', 
+            'full_name', 
+            'role', 
+            'business_profile',
+        ]
+
+        read_only_fields = ['id', 'email', 'role', 'business_profile']

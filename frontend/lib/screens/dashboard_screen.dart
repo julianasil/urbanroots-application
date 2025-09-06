@@ -22,7 +22,7 @@ class DashboardScreen extends StatelessWidget {
     final orderProv = Provider.of<OrderProvider>(context);
     final cartProv = Provider.of<CartProvider>(context);
     final userProv = Provider.of<UserProvider>(context);
-
+    final String fullName = userProv.currentUser?.userMetadata?['full_name'] ?? 'Guest';
     final productsCount = productProv.items.length;
     final ordersCount = orderProv.orders.length;
     final cartCount = cartProv.items.length;
@@ -53,12 +53,8 @@ class DashboardScreen extends StatelessWidget {
                       radius: 28,
                       backgroundColor: Theme.of(context).colorScheme.primary,
                       child: Text(
-                        (userProv.currentUser?.fullName ?? 'User')
-                            .split(' ')
-                            .first[0]
-                            .toUpperCase(),
-                        style:
-                            const TextStyle(color: Colors.white, fontSize: 20),
+                        (fullName.isNotEmpty ? fullName[0] : 'G').toUpperCase(),
+                        style: const TextStyle(color: Colors.white, fontSize: 20),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -67,7 +63,7 @@ class DashboardScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Welcome, ${userProv.currentUser?.fullName ?? 'Guest'}',
+                            'Welcome, $fullName',
                             style:
                                 Theme.of(context).textTheme.titleMedium?.copyWith(
                                       fontWeight: FontWeight.bold,
