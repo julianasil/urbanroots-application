@@ -27,53 +27,55 @@ class CartScreen extends StatelessWidget {
       ),
       body: Column(
         children: [
-          // Summary card
+          // Summary Card
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12),
             child: Card(
               elevation: 3,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: Padding(
                 padding: const EdgeInsets.all(14.0),
                 child: Row(
                   children: [
-                    // Total label
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Total', style: TextStyle(fontSize: 14, color: Colors.grey)),
+                        const Text(
+                          'Total',
+                          style: TextStyle(fontSize: 14, color: Colors.grey),
+                        ),
                         const SizedBox(height: 6),
                         Text(
                           '₱${cart.totalAmount.toStringAsFixed(2)}',
-                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                              fontSize: 20, fontWeight: FontWeight.bold),
                         ),
                       ],
                     ),
-
                     const Spacer(),
-
-                    // Checkout button
                     ElevatedButton.icon(
                       onPressed: cart.items.isEmpty
                           ? null
                           : () {
-                              // 1) Add the order
-                              Provider.of<OrderProvider>(context, listen: false).addOrder(
-                                cartItemsList,
-                                cart.totalAmount,
-                              );
-                              // 2) Clear the cart
+                              Provider.of<OrderProvider>(context, listen: false)
+                                  .addOrder(cartItemsList, cart.totalAmount);
                               cart.clear();
-                              // 3) Navigate to OrdersScreen
                               Navigator.of(context).push(
-                                MaterialPageRoute(builder: (_) => const OrdersScreen()),
+                                MaterialPageRoute(
+                                  builder: (_) => const OrdersScreen(),
+                                ),
                               );
                             },
                       icon: const Icon(Icons.payment),
                       label: const Text('CHECKOUT'),
                       style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 18, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                       ),
                     ),
                   ],
@@ -89,36 +91,45 @@ class CartScreen extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.shopping_cart_outlined, size: 64, color: Colors.grey),
+                    const Icon(Icons.shopping_cart_outlined,
+                        size: 64, color: Colors.grey),
                     const SizedBox(height: 12),
-                    Text('Your cart is empty', style: TextStyle(color: Colors.grey[600], fontSize: 16)),
+                    Text(
+                      'Your cart is empty',
+                      style: TextStyle(color: Colors.grey[600], fontSize: 16),
+                    ),
                     const SizedBox(height: 6),
-                    Text('Browse products and add items to your cart.',
-                        style: TextStyle(color: Colors.grey[500])),
+                    Text(
+                      'Browse products and add items to your cart.',
+                      style: TextStyle(color: Colors.grey[500]),
+                    ),
                   ],
                 ),
               ),
             )
           else
-            // Items list
+            // Items List
             Expanded(
               child: ListView.separated(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 itemCount: cart.items.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 8),
                 itemBuilder: (ctx, i) {
                   final cartItem = cartItemsList[i];
                   final productId = cartProductIds[i];
 
-                  // Try to find product image from ProductProvider (if you have products loaded)
                   final product = productProv.items.firstWhere(
                     (p) => p.id == productId,
                     orElse: () => Product(
                       id: productId,
-                      title: cartItem.title,
+                      name: cartItem.title,
                       description: '',
                       price: cartItem.price,
+                      stockQuantity: 9999, // fallback stock
+                      unit: 'pcs',
                       imageUrl: '',
+                      isActive: true,
                     ),
                   );
 
@@ -132,45 +143,54 @@ class CartScreen extends StatelessWidget {
                       ),
                       alignment: Alignment.centerRight,
                       padding: const EdgeInsets.only(right: 20),
-                      child: const Icon(Icons.delete, color: Colors.white, size: 32),
+                      child: const Icon(Icons.delete,
+                          color: Colors.white, size: 32),
                     ),
                     onDismissed: (_) => cart.removeItem(productId),
                     child: Card(
                       elevation: 1,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                       child: Padding(
                         padding: const EdgeInsets.all(8.0),
                         child: Row(
                           children: [
-                            // Thumbnail (asset / network via ProductImage) or price avatar
+                            // Product Thumbnail
                             ClipRRect(
                               borderRadius: BorderRadius.circular(8),
                               child: SizedBox(
                                 width: 78,
                                 height: 68,
-                                child: product.imageUrl.isNotEmpty
-                                    ? ProductImage(imageUrl: product.imageUrl, fit: BoxFit.cover)
+                                child: product.imageUrl?.isNotEmpty == true
+                                    ? ProductImage(
+                                        imageUrl: product.imageUrl!,
+                                        fit: BoxFit.cover,
+                                      )
                                     : Container(
                                         color: Colors.grey.shade200,
                                         child: Center(
                                           child: Text(
                                             '₱${cartItem.price.toStringAsFixed(0)}',
-                                            style: const TextStyle(fontWeight: FontWeight.bold),
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.bold),
                                           ),
                                         ),
                                       ),
                               ),
                             ),
-
                             const SizedBox(width: 12),
 
-                            // Title + subtotal
+                            // Title + Subtotal
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(cartItem.title,
-                                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                                  Text(
+                                    cartItem.title,
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold),
+                                  ),
                                   const SizedBox(height: 6),
                                   Text(
                                     'Subtotal: ₱${(cartItem.price * cartItem.quantity).toStringAsFixed(2)}',
@@ -180,7 +200,7 @@ class CartScreen extends StatelessWidget {
                               ),
                             ),
 
-                            // Quantity controls
+                            // Quantity Controls
                             Row(
                               children: [
                                 IconButton(
@@ -189,12 +209,23 @@ class CartScreen extends StatelessWidget {
                                     cart.removeSingleItem(productId);
                                   },
                                 ),
-                                Text('${cartItem.quantity}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                Text(
+                                  '${cartItem.quantity}',
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold),
+                                ),
                                 IconButton(
                                   icon: const Icon(Icons.add_circle_outline),
-                                  onPressed: () {
-                                    cart.addItem(productId, cartItem.price, cartItem.title);
-                                  },
+                                  onPressed: cartItem.quantity >=
+                                          product.stockQuantity
+                                      ? null
+                                      : () {
+                                          cart.addItem(
+                                            productId,
+                                            cartItem.price,
+                                            cartItem.title,
+                                          );
+                                        },
                                 ),
                               ],
                             ),

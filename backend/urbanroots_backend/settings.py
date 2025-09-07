@@ -21,6 +21,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # This is the verified, correct order for your apps.
 INSTALLED_APPS = [
     'users.apps.UsersConfig',
+    'products.apps.ProductsConfig',
+    'inventory.apps.InventoryConfig',
 
     # Django Built-in Apps
     'django.contrib.admin',
@@ -35,6 +37,7 @@ INSTALLED_APPS = [
     #'rest_framework.authtoken',
     #'dj_rest_auth',
     'corsheaders',
+    'django_filters',
 
 ]
 

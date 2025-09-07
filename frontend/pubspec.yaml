@@ -39,6 +39,7 @@ dependencies:
   # other dependencies...
   http: ^1.1.0
   flutter_secure_storage: ^9.0.0
+  file_picker: ^8.0.0
 
 
   # The following adds the Cupertino Icons font to your application.
