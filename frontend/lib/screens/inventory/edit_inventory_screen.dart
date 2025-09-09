@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../models/product.dart';
-import '../providers/inventory_provider.dart';
-import '../providers/product_provider.dart'; // ✅ add this import
+import '../../models/product.dart';
+import '../../providers/stock_provider.dart';
+import '../../providers/product_provider.dart'; // ✅ add this import
 
 class EditInventoryScreen extends StatefulWidget {
   final Product? product; // null = adding new

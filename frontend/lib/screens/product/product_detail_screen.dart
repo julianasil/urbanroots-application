@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
-import '../models/product.dart';
-import '../providers/cart_provider.dart';
-import '../widgets/product_image.dart';
+import '../../models/product.dart';
+import '../../providers/cart_provider.dart';
+import '../../widgets/product_image.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final Product product;
@@ -77,8 +77,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     : () async {
                         setState(() => _addingToCart = true);
                         try {
-                          await cart.addItem(
-                            product.id as int,
+                          cart.addItem(
+                            product.productId as int, // updated for backend
                             product.price,
                             product.name,
                           );

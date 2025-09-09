@@ -1,129 +1,92 @@
-import 'dart:convert';
+// lib/providers/product_provider.dart
+import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import '../models/product.dart';
+import '../services/product_service.dart';
 
-class ProductProvider with ChangeNotifier {
-  final String _baseUrl = "http://127.0.0.1:8000/api/products/"; // adjust for emulator/device
+class ProductProvider extends ChangeNotifier {
+  final ProductService service;
   List<Product> _items = [];
-  bool _loading = false;
+  bool isLoading = false;
+  String? error;
 
-  List<Product> get items => [..._items];
-  bool get loading => _loading;
+  ProductProvider({required this.service});
 
-  /// Fetch products from Django backend
-  Future<void> fetchProducts() async {
-    _loading = true;
-    notifyListeners();
+  List<Product> get items => _items;
 
+  /// Fetch products from backend
+  Future<void> loadProducts({Map<String, String>? filters}) async {
     try {
-      final response = await http.get(Uri.parse(_baseUrl));
-      if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
-        _items = data.map((json) => Product.fromJson(json)).toList();
-      } else {
-        throw Exception("Failed to fetch products: ${response.statusCode}");
-      }
+      isLoading = true;
+      notifyListeners();
+      final products = await service.fetchProducts(queryParameters: filters);
+      _items = products;
+      error = null;
     } catch (e) {
-      if (kDebugMode) {
-        print("Error fetching products: $e");
-      }
+      error = e.toString();
     } finally {
-      _loading = false;
+      isLoading = false;
       notifyListeners();
     }
   }
 
-  /// Add a new product (POST)
-  Future<void> addProduct(Product product) async {
+  /// Create a new product on backend
+  Future<Product?> createProduct(Product product, {required String sellerProfileId, File? imageFile}) async {
     try {
-      final response = await http.post(
-        Uri.parse(_baseUrl),
-        headers: {"Content-Type": "application/json"},
-        body: json.encode(product.toJson()),
+      final created = await service.createProduct(
+        product,
+        sellerProfileId: sellerProfileId,
+        imageFile: imageFile,
       );
-      if (response.statusCode == 201) {
-        final newProduct = Product.fromJson(json.decode(response.body));
-        _items.add(newProduct);
-        notifyListeners();
-      } else {
-        throw Exception("Failed to add product: ${response.statusCode}");
-      }
+      _items.insert(0, created);
+      notifyListeners();
+      return created;
     } catch (e) {
-      if (kDebugMode) {
-        print("Error adding product: $e");
-      }
+      error = e.toString();
+      notifyListeners();
+      rethrow;
     }
   }
 
-  /// Update an existing product (PUT)
-  Future<void> updateProduct(Product updatedProduct) async {
-    final url = Uri.parse("$_baseUrl${updatedProduct.id}/");
-
+  /// Update an existing product
+  Future<Product?> updateProduct(Product product, {File? imageFile}) async {
     try {
-      final response = await http.put(
-        url,
-        headers: {"Content-Type": "application/json"},
-        body: json.encode(updatedProduct.toJson()),
-      );
-      if (response.statusCode == 200) {
-        final index = _items.indexWhere((item) => item.id == updatedProduct.id);
-        if (index != -1) {
-          _items[index] = updatedProduct;
-          notifyListeners();
-        }
-      } else {
-        throw Exception("Failed to update product: ${response.statusCode}");
-      }
+      final updated = await service.updateProduct(product.productId, product, imageFile: imageFile);
+      final idx = _items.indexWhere((p) => p.productId == updated.productId);
+      if (idx >= 0) _items[idx] = updated;
+      notifyListeners();
+      return updated;
     } catch (e) {
-      if (kDebugMode) {
-        print("Error updating product: $e");
-      }
+      error = e.toString();
+      notifyListeners();
+      rethrow;
     }
   }
 
-  /// Soft delete a product (mark inactive instead of removing completely)
+  /// Delete a product
   Future<void> deleteProduct(String id) async {
-    final url = Uri.parse("$_baseUrl$id/");
-
     try {
-      // Option A: If your backend expects DELETE (hard delete)
-      final response = await http.delete(url);
-
-      // Option B: If your backend uses soft delete -> use PATCH instead
-      // final response = await http.patch(
-      //   url,
-      //   headers: {"Content-Type": "application/json"},
-      //   body: json.encode({'is_active': false}),
-      // );
-
-      if (response.statusCode == 204 || response.statusCode == 200) {
-        final index = _items.indexWhere((item) => item.id == id);
-        if (index != -1) {
-          final product = _items[index];
-          _items[index] = product.copyWith(isActive: false);
-          notifyListeners();
-        }
-      } else {
-        throw Exception("Failed to delete product: ${response.statusCode}");
-      }
+      await service.deleteProduct(id);
+      _items.removeWhere((p) => p.productId == id);
+      notifyListeners();
     } catch (e) {
-      if (kDebugMode) {
-        print("Error deleting product: $e");
-      }
+      error = e.toString();
+      notifyListeners();
+      rethrow;
     }
   }
 
-  /// Adjust stock quantity (positive = add, negative = subtract)
-  void adjustStock(String id, int change) {
-    final index = _items.indexWhere((item) => item.id == id);
-    if (index != -1) {
-      final product = _items[index];
-      final updated = product.copyWith(
-        stockQuantity: product.stockQuantity + change,
-      );
-      _items[index] = updated;
+  /// Update local stock after an adjustment
+  void updateLocalStock(String productId, int delta) {
+    final idx = _items.indexWhere((p) => p.productId == productId);
+    if (idx >= 0) {
+      _items[idx].stockQuantity += delta;
       notifyListeners();
     }
+  }
+
+  /// Redirect addProduct to createProduct for consistency
+  Future<Product?> addProduct(Product product, {required String sellerProfileId, File? imageFile}) {
+    return createProduct(product, sellerProfileId: sellerProfileId, imageFile: imageFile);
   }
 }

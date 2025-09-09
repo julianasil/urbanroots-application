@@ -1,80 +1,73 @@
+// lib/models/product.dart
+import 'dart:convert';
+
 class Product {
-  final String id;
+  final String productId;
+  final String? sellerProfile; // returned read-only field from API
   final String name;
   final String description;
   final double price;
   final String unit;
-  final int stockQuantity;
-  final String? imageUrl; // can be URL or local file path
+  int stockQuantity;
+  final String? imageUrl; // serializer returns 'image' (URL or path)
   final bool isActive;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
 
   Product({
-    required this.id,
+    required this.productId,
+    this.sellerProfile,
     required this.name,
-    required this.description,
+    this.description = '',
     required this.price,
     required this.unit,
     required this.stockQuantity,
     this.imageUrl,
     required this.isActive,
+    this.createdAt,
+    this.updatedAt,
   });
 
-  /// Factory constructor to create a Product from Django JSON
   factory Product.fromJson(Map<String, dynamic> json) {
     return Product(
-      id: json['product_id'] ?? '',
+      productId: json['product_id'] as String,
+      sellerProfile: json['seller_profile']?.toString(),
       name: json['name'] ?? '',
       description: json['description'] ?? '',
-      price: (json['price'] as num?)?.toDouble() ?? 0.0,
+      price: (json['price'] is String) ? double.parse(json['price']) : (json['price']?.toDouble() ?? 0.0),
       unit: json['unit'] ?? '',
-      stockQuantity: json['stock_quantity'] ?? 0,
-      imageUrl: json['image'], // remote URL from backend
+      stockQuantity: (json['stock_quantity'] ?? 0) as int,
+      imageUrl: json['image'] != null ? json['image'].toString() : null,
       isActive: json['is_active'] ?? true,
+      createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : null,
+      updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at']) : null,
     );
   }
 
-  /// Convert Product to JSON (for POST/PUT requests)
-  /// ⚠️ Important: local file paths are not sent to backend
-  Map<String, dynamic> toJson() {
+  // toJson for creating a product: include seller_profile_id (write-only)
+  Map<String, dynamic> toCreateJson({required String sellerProfileId}) {
     return {
-      'product_id': id,
+      'seller_profile_id': sellerProfileId,
       'name': name,
       'description': description,
       'price': price,
       'unit': unit,
       'stock_quantity': stockQuantity,
-      'image': (imageUrl != null && imageUrl!.startsWith('http'))
-          ? imageUrl
-          : null, // only send remote URLs
       'is_active': isActive,
+      // 'image' handled via multipart for uploads
     };
   }
 
-  /// CopyWith method for immutability
-  Product copyWith({
-    String? id,
-    String? name,
-    String? description,
-    double? price,
-    String? unit,
-    int? stockQuantity,
-    String? imageUrl,
-    bool? isActive,
-  }) {
-    return Product(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      description: description ?? this.description,
-      price: price ?? this.price,
-      unit: unit ?? this.unit,
-      stockQuantity: stockQuantity ?? this.stockQuantity,
-      imageUrl: imageUrl ?? this.imageUrl,
-      isActive: isActive ?? this.isActive,
-    );
-  }
-
-  /// Helper: check if image is local file
-  bool get isLocalImage {
-    return imageUrl != null && !imageUrl!.startsWith('http');
+  // toJson for updates: do not send seller_profile_id (server forbids changing seller)
+  Map<String, dynamic> toUpdateJson() {
+    return {
+      'name': name,
+      'description': description,
+      'price': price,
+      'unit': unit,
+      'stock_quantity': stockQuantity,
+      'is_active': isActive,
+      // 'image' handled separately
+    };
   }
 }

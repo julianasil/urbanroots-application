@@ -2,8 +2,8 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../models/product.dart';
-import '../providers/product_provider.dart';
+import '../../models/product.dart';
+import '../../providers/product_provider.dart';
 
 class EditProductScreen extends StatefulWidget {
   final Product? product;
@@ -24,6 +24,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
   late String _unit;
   File? _imageFile;
   String? _existingImageUrl;
+  bool _isSaving = false;
 
   @override
   void initState() {
@@ -33,14 +34,10 @@ class _EditProductScreenState extends State<EditProductScreen> {
     _price = widget.product?.price ?? 0.0;
     _stockQuantity = widget.product?.stockQuantity ?? 0;
     _unit = widget.product?.unit ?? 'kg';
-
     final imageUrl = widget.product?.imageUrl ?? '';
     if (imageUrl.isNotEmpty) {
-      if (imageUrl.startsWith("http")) {
-        _existingImageUrl = imageUrl;
-      } else {
-        _imageFile = File(imageUrl);
-      }
+      _existingImageUrl = imageUrl.startsWith("http") ? imageUrl : null;
+      if (!imageUrl.startsWith("http")) _imageFile = File(imageUrl);
     }
   }
 
@@ -54,31 +51,50 @@ class _EditProductScreenState extends State<EditProductScreen> {
     }
   }
 
-  void _saveForm() {
-    if (_formKey.currentState!.validate()) {
-      _formKey.currentState!.save();
+  Future<void> _saveForm() async {
+    if (!_formKey.currentState!.validate()) return;
 
-      final newProduct = Product(
-        id: widget.product?.id ?? DateTime.now().toString(),
-        name: _name,
-        description: _description,
-        price: _price,
-        stockQuantity: _stockQuantity,
-        unit: _unit,
-        imageUrl: _imageFile?.path ?? _existingImageUrl ?? '',
-        isActive: widget.product?.isActive ?? true,
-      );
+    _formKey.currentState!.save();
+    setState(() => _isSaving = true);
 
-      final productProvider =
-          Provider.of<ProductProvider>(context, listen: false);
+    final productProvider = Provider.of<ProductProvider>(context, listen: false);
 
+    try {
       if (widget.product == null) {
-        productProvider.addProduct(newProduct);
+        // New product
+        final newProduct = Product(
+          productId: '', // backend generates
+          name: _name,
+          description: _description,
+          price: _price,
+          stockQuantity: _stockQuantity,
+          unit: _unit,
+          imageUrl: _existingImageUrl ?? '',
+          isActive: true,
+        );
+        await productProvider.createProduct(newProduct, sellerProfileId: '', imageFile: _imageFile);
       } else {
-        productProvider.updateProduct(newProduct); // <-- fixed
+        // Updating existing product
+        final updatedProduct = Product(
+          productId: widget.product!.productId,
+          name: _name,
+          description: _description,
+          price: _price,
+          stockQuantity: _stockQuantity,
+          unit: _unit,
+          imageUrl: _existingImageUrl ?? '',
+          isActive: widget.product!.isActive,
+        );
+        await productProvider.updateProduct(updatedProduct, imageFile: _imageFile);
       }
 
-      Navigator.of(context).pop();
+      if (mounted) Navigator.of(context).pop();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to save product: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
@@ -99,8 +115,17 @@ class _EditProductScreenState extends State<EditProductScreen> {
         title: Text(widget.product == null ? 'Add Product' : 'Edit Product'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.save),
-            onPressed: _saveForm,
+            icon: _isSaving
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                : const Icon(Icons.save),
+            onPressed: _isSaving ? null : _saveForm,
           ),
         ],
       ),
@@ -113,45 +138,37 @@ class _EditProductScreenState extends State<EditProductScreen> {
               TextFormField(
                 initialValue: _name,
                 decoration: const InputDecoration(labelText: 'Name'),
-                validator: (value) =>
-                    value == null || value.isEmpty ? 'Please enter a name' : null,
+                validator: (value) => value == null || value.isEmpty ? 'Please enter a name' : null,
                 onSaved: (value) => _name = value!,
               ),
               TextFormField(
                 initialValue: _description,
                 decoration: const InputDecoration(labelText: 'Description'),
-                validator: (value) => value == null || value.isEmpty
-                    ? 'Please enter a description'
-                    : null,
+                validator: (value) => value == null || value.isEmpty ? 'Please enter a description' : null,
                 onSaved: (value) => _description = value!,
               ),
               TextFormField(
                 initialValue: _price.toString(),
                 decoration: const InputDecoration(labelText: 'Price'),
                 keyboardType: TextInputType.number,
-                validator: (value) =>
-                    value == null || value.isEmpty ? 'Please enter a price' : null,
+                validator: (value) => value == null || value.isEmpty ? 'Please enter a price' : null,
                 onSaved: (value) => _price = double.parse(value!),
               ),
               TextFormField(
                 initialValue: _stockQuantity.toString(),
                 decoration: const InputDecoration(labelText: 'Stock Quantity'),
                 keyboardType: TextInputType.number,
-                validator: (value) => value == null || value.isEmpty
-                    ? 'Please enter stock quantity'
-                    : null,
+                validator: (value) => value == null || value.isEmpty ? 'Please enter stock quantity' : null,
                 onSaved: (value) => _stockQuantity = int.parse(value!),
               ),
               TextFormField(
                 initialValue: _unit,
                 decoration: const InputDecoration(labelText: 'Unit'),
-                validator: (value) =>
-                    value == null || value.isEmpty ? 'Please enter a unit' : null,
+                validator: (value) => value == null || value.isEmpty ? 'Please enter a unit' : null,
                 onSaved: (value) => _unit = value!,
               ),
               const SizedBox(height: 16),
-              Text("Product Image",
-                  style: Theme.of(context).textTheme.titleMedium),
+              Text("Product Image", style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               _buildImagePreview(),
               TextButton.icon(
