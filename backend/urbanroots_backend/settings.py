@@ -22,7 +22,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 INSTALLED_APPS = [
     'users.apps.UsersConfig',
     'products.apps.ProductsConfig',
-    'inventory.apps.InventoryConfig',
+    #'inventory.apps.InventoryConfig',
 
     # Django Built-in Apps
     'django.contrib.admin',

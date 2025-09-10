@@ -31,6 +31,17 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
     final isOutOfStock = product.stockQuantity <= 0 || !product.isActive;
 
+    String? fullImageUrl;
+    if (product.image != null && product.image!.isNotEmpty) {
+      if (product.image!.startsWith('http')) {
+        // If the path is already a full URL, use it directly.
+        fullImageUrl = product.image!;
+      } else {
+        // If the path is relative (e.g., /media/...), prepend the base server URL.
+        fullImageUrl = 'http://127.0.0.1:8000${product.image}';
+      }
+    }
+
     return Scaffold(
       appBar: AppBar(title: Text(product.name)),
       body: SingleChildScrollView(
@@ -39,7 +50,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ProductImage(
-              imageUrl: product.imageUrl,
+              imageUrl: fullImageUrl,
               width: double.infinity,
               height: 250,
               fit: BoxFit.cover,
@@ -78,7 +89,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         setState(() => _addingToCart = true);
                         try {
                           cart.addItem(
-                            product.productId as int, // updated for backend
+                            product.productId, // updated for backend
                             product.price,
                             product.name,
                           );

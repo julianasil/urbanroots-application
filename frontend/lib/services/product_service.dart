@@ -1,85 +1,121 @@
 // lib/services/product_service.dart
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/product.dart';
 
 class ProductService {
-  final String baseUrl;
-  final String? authToken; // optional: pass token for write operations
-
-  ProductService({required this.baseUrl, this.authToken});
-
-  Uri _productsUrl([String path = '']) => Uri.parse('$baseUrl/api/products/$path');
-
-  Map<String, String> _headers({bool jsonOnly = true}) {
-    final headers = <String, String>{};
-    if (authToken != null) headers['Authorization'] = 'Bearer $authToken';
-    if (jsonOnly) headers['Content-Type'] = 'application/json';
-    return headers;
+  final String _baseUrl = 'http://127.0.0.1:8000/api/products';
+  
+  Future<Map<String, String>> _getAuthHeaders() async {
+    final session = Supabase.instance.client.auth.currentSession;
+    if (session == null) {
+      throw Exception('User is not authenticated.');
+    }
+    return {
+      'Content-Type': 'application/json; charset=UTF-8',
+      'Authorization': 'Bearer ${session.accessToken}',
+    };
   }
 
   Future<List<Product>> fetchProducts({Map<String, String>? queryParameters}) async {
-    final url = _productsUrl();
-    final uri = (queryParameters == null || queryParameters.isEmpty) ? url : url.replace(queryParameters: queryParameters);
-    final res = await http.get(uri, headers: _headers());
-    if (res.statusCode != 200) throw Exception('Failed to fetch products: ${res.statusCode}');
-    final list = jsonDecode(res.body) as List;
-    return list.map((e) => Product.fromJson(e as Map<String, dynamic>)).toList();
-  }
-
-  Future<Product> fetchProduct(String id) async {
-    final res = await http.get(_productsUrl('$id/'), headers: _headers());
-    if (res.statusCode != 200) throw Exception('Failed to fetch product');
-    return Product.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
-  }
-
-  // Create product. If imageFile is provided, will upload as multipart.
-  Future<Product> createProduct(Product product, {required String sellerProfileId, File? imageFile}) async {
-    if (imageFile == null) {
-      final body = jsonEncode(product.toCreateJson(sellerProfileId: sellerProfileId));
-      final res = await http.post(_productsUrl(), headers: _headers(), body: body);
-      if (res.statusCode != 201) throw Exception('Failed to create product: ${res.body}');
-      return Product.fromJson(jsonDecode(res.body));
-    } else {
-      // multipart upload with image
-      final uri = _productsUrl();
-      final request = http.MultipartRequest('POST', uri);
-      if (authToken != null) request.headers['Authorization'] = 'Bearer $authToken';
-      // fields
-      final fields = product.toCreateJson(sellerProfileId: sellerProfileId);
-      fields.forEach((k, v) => request.fields[k] = v.toString());
-      // image file
-      request.files.add(await http.MultipartFile.fromPath('image', imageFile.path));
-      final streamed = await request.send();
-      final res = await http.Response.fromStream(streamed);
-      if (res.statusCode != 201) throw Exception('Failed to create product (multipart): ${res.body}');
-      return Product.fromJson(jsonDecode(res.body));
+    final uri = Uri.parse('$_baseUrl/').replace(queryParameters: queryParameters);
+    try {
+      final response = await http.get(uri);
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        return data.map((json) => Product.fromJson(json)).toList();
+      } else {
+        throw Exception('Failed to fetch products: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Network error while fetching products: $e');
     }
   }
 
-  Future<Product> updateProduct(String id, Product product, {File? imageFile}) async {
-    // If imageFile present -> PATCH multipart
-    if (imageFile == null) {
-      final body = jsonEncode(product.toUpdateJson());
-      final res = await http.patch(_productsUrl('$id/'), headers: _headers(), body: body);
-      if (res.statusCode != 200) throw Exception('Failed to update product: ${res.body}');
-      return Product.fromJson(jsonDecode(res.body));
+  Future<Product> fetchProduct(String id) async {
+    final response = await http.get(Uri.parse('$_baseUrl/$id/'));
+    if (response.statusCode == 200) {
+      return Product.fromJson(json.decode(response.body));
     } else {
-      final uri = _productsUrl('$id/');
-      final request = http.MultipartRequest('PATCH', uri);
-      if (authToken != null) request.headers['Authorization'] = 'Bearer $authToken';
-      product.toUpdateJson().forEach((k, v) => request.fields[k] = v.toString());
+      throw Exception('Failed to fetch product');
+    }
+  }
+
+
+  /// Creates a new product. Requires authentication.
+  /// The backend will securely assign the seller based on the token.
+  Future<Product> createProduct(Product product, {File? imageFile, Uint8List? imageBytes, String? imageName}) async {
+    final headers = await _getAuthHeaders();
+    final uri = Uri.parse('$_baseUrl/');
+    
+    var request = http.MultipartRequest('POST', uri)
+      ..headers.addAll({'Authorization': headers['Authorization']!});
+
+    // Add text fields
+    request.fields['name'] = product.name;
+    request.fields['description'] = product.description;
+    request.fields['price'] = product.price.toString();
+    request.fields['unit'] = product.unit;
+    request.fields['stock_quantity'] = product.stockQuantity.toString();
+    request.fields['is_active'] = product.isActive.toString();
+    
+    // Add image file based on platform
+    if (imageFile != null) {
+      // Mobile platform
       request.files.add(await http.MultipartFile.fromPath('image', imageFile.path));
-      final streamed = await request.send();
-      final res = await http.Response.fromStream(streamed);
-      if (res.statusCode != 200) throw Exception('Failed to update product (multipart): ${res.body}');
-      return Product.fromJson(jsonDecode(res.body));
+    } else if (imageBytes != null && imageName != null) {
+      // Web platform
+      request.files.add(http.MultipartFile.fromBytes('image', imageBytes, filename: imageName));
+    }
+
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+
+    if (response.statusCode == 201) {
+      return Product.fromJson(json.decode(response.body));
+    } else {
+      print('Failed to create product. Status: ${response.statusCode}, Body: ${response.body}');
+      throw Exception('Failed to create product.');
+    }
+  }
+
+  Future<Product> updateProduct(String productId, Product product, {File? imageFile, Uint8List? imageBytes, String? imageName}) async {
+    final headers = await _getAuthHeaders();
+    final uri = Uri.parse('$_baseUrl/$productId/');
+
+    var request = http.MultipartRequest('PATCH', uri)
+      ..headers.addAll({'Authorization': headers['Authorization']!});
+      
+    request.fields.addAll(product.toUpdateJson().map((key, value) => MapEntry(key, value.toString())));
+
+    if (imageFile != null) {
+      request.files.add(await http.MultipartFile.fromPath('image', imageFile.path));
+    } else if (imageBytes != null && imageName != null) {
+      request.files.add(http.MultipartFile.fromBytes('image', imageBytes, filename: imageName));
+    }
+
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+
+    if (response.statusCode == 200) {
+      return Product.fromJson(json.decode(response.body));
+    } else {
+      throw Exception('Failed to update product.');
     }
   }
 
   Future<void> deleteProduct(String id) async {
-    final res = await http.delete(_productsUrl('$id/'), headers: _headers());
-    if (res.statusCode != 204) throw Exception('Failed to delete product: ${res.body}');
+    final headers = await _getAuthHeaders();
+    final response = await http.delete(
+      Uri.parse('$_baseUrl/$id/'), 
+      headers: headers
+    );
+
+    if (response.statusCode != 204) { // 204 No Content
+      throw Exception('Failed to delete product: ${response.body}');
+    }
   }
 }

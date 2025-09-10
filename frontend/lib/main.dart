@@ -1,6 +1,7 @@
 // lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'services/product_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart'; 
 import 'providers/order_provider.dart';
 import 'providers/user_provider.dart';
@@ -20,12 +21,25 @@ Future<void> main() async {
     anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVzbm54eG9lanVianJ1a3BpbXNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQwMTA5NTIsImV4cCI6MjA2OTU4Njk1Mn0.pgPf1tyMgu8gKYo7HdKQkhYVAZoxhrBygkgPd1XE0kY',
   );
 
+  final productService = ProductService();
+
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => UserProvider()),
-        ChangeNotifierProvider(create: (_) => ProductProvider()),
-        ChangeNotifierProvider(create: (_) => CartProvider()),
+        
+        // --- THIS IS THE FIX ---
+        // Provide the required 'service' to ProductProvider
+        ChangeNotifierProvider(
+          create: (_) => ProductProvider(service: productService),
+        ),
+
+        // For CartProvider, we can use a temporary placeholder for userId.
+        // We will likely refactor this later to be more robust.
+        ChangeNotifierProvider(
+          create: (_) => CartProvider(userId: 'temp_user_id'), // Use a placeholder
+        ),
+
         ChangeNotifierProvider(create: (_) => OrderProvider()),
       ],
       child: const MyApp(),

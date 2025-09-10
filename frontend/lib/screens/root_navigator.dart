@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'home_screen.dart';
-import 'cart_screen.dart';
-import 'account_screen.dart'; // ← Import your new AccountScreen
+import 'package:urbanroots_application/screens/product/market_screen.dart';
+//import 'cart_screen.dart';
+import 'account_screen.dart';
 import 'dashboard_screen.dart';
 
 
@@ -15,11 +15,10 @@ class RootNavigator extends StatefulWidget {
 class _RootNavigatorState extends State<RootNavigator> {
   int _currentIndex = 0;
 
-  // Add AccountScreen as a third page
   final List<Widget> _pages = [
     const DashboardScreen(),
-    const HomeScreen(),
-    const CartScreen(),
+    const MarketScreen(),
+    //const CartScreen(),
     const AccountScreen(),
   ];
 
@@ -39,10 +38,10 @@ class _RootNavigatorState extends State<RootNavigator> {
             icon: Icon(Icons.store),
             label: 'Shop',
           ),
-          BottomNavigationBarItem(
+          /*BottomNavigationBarItem(
             icon: Icon(Icons.shopping_cart),
             label: 'Cart',
-          ),
+          ),*/
           BottomNavigationBarItem(
             icon: Icon(Icons.account_circle),
             label: 'Account', // New tab

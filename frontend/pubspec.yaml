@@ -35,6 +35,7 @@ dependencies:
   flutter_dotenv: ^5.0.2
   # For multiple payment methods:
   flutter_stripe: ^11.5.0  # example for Stripe
+  flutter_svg: 2.2.0
   pay: ^3.2.1            # for Apple/Google Pay
   # other dependencies...
   http: ^1.1.0

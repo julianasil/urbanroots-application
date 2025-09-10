@@ -120,15 +120,15 @@ class CartScreen extends StatelessWidget {
                   final productId = cartProductIds[i];
 
                   final product = productProv.items.firstWhere(
-                    (p) => p.id == productId,
+                    (p) => p.productId == productId,
                     orElse: () => Product(
-                      id: productId,
+                      productId: productId,
                       name: cartItem.title,
                       description: '',
                       price: cartItem.price,
                       stockQuantity: 9999, // fallback stock
                       unit: 'pcs',
-                      imageUrl: '',
+                      image: '',
                       isActive: true,
                     ),
                   );
@@ -162,9 +162,9 @@ class CartScreen extends StatelessWidget {
                               child: SizedBox(
                                 width: 78,
                                 height: 68,
-                                child: product.imageUrl?.isNotEmpty == true
+                                child: product.image?.isNotEmpty == true
                                     ? ProductImage(
-                                        imageUrl: product.imageUrl!,
+                                        imageUrl: product.image!,
                                         fit: BoxFit.cover,
                                       )
                                     : Container(

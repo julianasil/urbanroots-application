@@ -1,12 +1,11 @@
 // lib/screens/dashboard_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-
 import '../providers/product_provider.dart';
 import '../providers/order_provider.dart';
 import '../providers/cart_provider.dart';
 import '../providers/user_provider.dart';
-import 'edit_product_screen.dart';
+import '../screens/product/edit_product_screen.dart';
 import 'orders_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
@@ -20,12 +19,12 @@ class DashboardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final productProv = Provider.of<ProductProvider>(context);
     final orderProv = Provider.of<OrderProvider>(context);
-    final cartProv = Provider.of<CartProvider>(context);
+    //final cartProv = Provider.of<CartProvider>(context);
     final userProv = Provider.of<UserProvider>(context);
     final String fullName = userProv.currentUser?.userMetadata?['full_name'] ?? 'Guest';
     final productsCount = productProv.items.length;
     final ordersCount = orderProv.orders.length;
-    final cartCount = cartProv.items.length;
+    final cartCount = 0;//cartProv.items.length;
     final totalSales = orderProv.orders.fold<double>(
       0.0,
       (prev, order) => prev + (order.total ?? 0.0),

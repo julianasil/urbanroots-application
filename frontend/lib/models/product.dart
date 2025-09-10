@@ -1,15 +1,15 @@
 // lib/models/product.dart
-import 'dart:convert';
+import 'user_profile.dart';
 
 class Product {
   final String productId;
-  final String? sellerProfile; // returned read-only field from API
+  final BusinessProfile? sellerProfile;  // returned read-only field from API
   final String name;
   final String description;
   final double price;
   final String unit;
   int stockQuantity;
-  final String? imageUrl; // serializer returns 'image' (URL or path)
+  final String? image;
   final bool isActive;
   final DateTime? createdAt;
   final DateTime? updatedAt;
@@ -22,7 +22,7 @@ class Product {
     required this.price,
     required this.unit,
     required this.stockQuantity,
-    this.imageUrl,
+    this.image,
     required this.isActive,
     this.createdAt,
     this.updatedAt,
@@ -31,13 +31,15 @@ class Product {
   factory Product.fromJson(Map<String, dynamic> json) {
     return Product(
       productId: json['product_id'] as String,
-      sellerProfile: json['seller_profile']?.toString(),
+      sellerProfile: json['seller_profile'] != null
+          ? BusinessProfile.fromJson(json['seller_profile'])
+          : null,
       name: json['name'] ?? '',
       description: json['description'] ?? '',
       price: (json['price'] is String) ? double.parse(json['price']) : (json['price']?.toDouble() ?? 0.0),
       unit: json['unit'] ?? '',
       stockQuantity: (json['stock_quantity'] ?? 0) as int,
-      imageUrl: json['image'] != null ? json['image'].toString() : null,
+      image: json['image']?.toString(),
       isActive: json['is_active'] ?? true,
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : null,
       updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at']) : null,
@@ -45,16 +47,14 @@ class Product {
   }
 
   // toJson for creating a product: include seller_profile_id (write-only)
-  Map<String, dynamic> toCreateJson({required String sellerProfileId}) {
+  Map<String, dynamic> toCreateJson() {
     return {
-      'seller_profile_id': sellerProfileId,
       'name': name,
       'description': description,
-      'price': price,
+      'price': price.toString(), // Send price as a string for consistency with DecimalField
       'unit': unit,
       'stock_quantity': stockQuantity,
       'is_active': isActive,
-      // 'image' handled via multipart for uploads
     };
   }
 
@@ -63,11 +63,10 @@ class Product {
     return {
       'name': name,
       'description': description,
-      'price': price,
+      'price': price.toString(),
       'unit': unit,
       'stock_quantity': stockQuantity,
       'is_active': isActive,
-      // 'image' handled separately
     };
   }
 }

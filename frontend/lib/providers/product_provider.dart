@@ -16,9 +16,9 @@ class ProductProvider extends ChangeNotifier {
 
   /// Fetch products from backend
   Future<void> loadProducts({Map<String, String>? filters}) async {
+    isLoading = true;
     try {
-      isLoading = true;
-      notifyListeners();
+      //notifyListeners();
       final products = await service.fetchProducts(queryParameters: filters);
       _items = products;
       error = null;
@@ -26,16 +26,16 @@ class ProductProvider extends ChangeNotifier {
       error = e.toString();
     } finally {
       isLoading = false;
-      notifyListeners();
+      //notifyListeners();
     }
   }
 
   /// Create a new product on backend
-  Future<Product?> createProduct(Product product, {required String sellerProfileId, File? imageFile}) async {
+    Future<Product?> createProduct(Product product, {File? imageFile}) async {
     try {
+      // The service layer will handle sending the auth token.
       final created = await service.createProduct(
         product,
-        sellerProfileId: sellerProfileId,
         imageFile: imageFile,
       );
       _items.insert(0, created);
@@ -44,7 +44,7 @@ class ProductProvider extends ChangeNotifier {
     } catch (e) {
       error = e.toString();
       notifyListeners();
-      rethrow;
+      rethrow; // Rethrowing is good for letting the UI know about the error.
     }
   }
 
@@ -87,6 +87,6 @@ class ProductProvider extends ChangeNotifier {
 
   /// Redirect addProduct to createProduct for consistency
   Future<Product?> addProduct(Product product, {required String sellerProfileId, File? imageFile}) {
-    return createProduct(product, sellerProfileId: sellerProfileId, imageFile: imageFile);
+    return createProduct(product, imageFile: imageFile);
   }
 }

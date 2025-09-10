@@ -4,7 +4,7 @@ import '../models/user_profile.dart'; // We'll need this to pass existing data
 import '../services/api_service.dart';
 
 class EditProfileScreen extends StatefulWidget {
-  // If we are editing, we pass the existing profile. If creating, this will be null.
+
   final BusinessProfile? profile;
 
   const EditProfileScreen({super.key, this.profile});
