@@ -17,13 +17,25 @@ class BusinessProfile {
 
   factory BusinessProfile.fromJson(Map<String, dynamic> json) {
     return BusinessProfile(
-      profileId: json['profile_id'],
+      profileId: json['profile_id'] ?? '',
       companyName: json['company_name'],
-      contactNumber: json['contact_number'],
-      address: json['address'],
-      businessType: json['business_type'],
+      contactNumber: json['contact_number'] ?? '',
+      address: json['address'] ?? '',
+      businessType: json['business_type'] ?? 'buyer',
     );
   }
+
+  // MODIFIED: Added these overrides. This is important for the UI, especially
+  // for DropdownButton to correctly compare and display the selected item.
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is BusinessProfile &&
+          runtimeType == other.runtimeType &&
+          profileId == other.profileId;
+
+  @override
+  int get hashCode => profileId.hashCode;
 }
 
 class UserProfile {
@@ -32,8 +44,10 @@ class UserProfile {
   final String username;
   final String fullName;
   final String role;
-  // This can now be a BusinessProfile object or null
-  final BusinessProfile? businessProfile;
+  
+  // REMOVED: The direct link to a single business profile is gone.
+  // A user's business memberships are now fetched separately via the new API endpoint.
+  // final BusinessProfile? businessProfile;
 
   UserProfile({
     required this.id,
@@ -41,25 +55,23 @@ class UserProfile {
     required this.username,
     required this.fullName,
     required this.role,
-    this.businessProfile,
+    // REMOVED: No longer part of the constructor
+    // this.businessProfile,
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
     return UserProfile(
-      id: json['id'],
-      email: json['email'],
-      username: json['username'],
-      fullName: json['full_name'],
-      role: json['role'],
-      // If 'business_profile' is not null in the JSON, parse it. Otherwise, it's null.
-      businessProfile: json['business_profile'] != null
-          ? BusinessProfile.fromJson(json['business_profile'])
-          : null,
+      id: json['id'] ?? '',
+      email: json['email'] ?? '',
+      username: json['username'] ?? '',
+      fullName: json['full_name'] ?? '',
+      role: json['role'] ?? 'user',
+      // REMOVED: The logic for parsing a single business profile is gone.
     );
   }
 }
 
-// A simple extension to capitalize the first letter of a string
+// This extension is fine and can stay as is.
 extension StringExtension on String {
   String capitalize() {
     if (this.isEmpty) return this;

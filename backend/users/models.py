@@ -4,7 +4,7 @@ import uuid
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 
-# First, define the BusinessProfile model as it's a dependency for CustomUser.
+# The BusinessProfile model is now the primary place for the relationship.
 class BusinessProfile(models.Model):
     class BusinessType(models.TextChoices):
         SELLER = 'seller', 'Seller'
@@ -21,46 +21,47 @@ class BusinessProfile(models.Model):
         default=BusinessType.BUYER
     )
 
+    # ADDED: A ManyToManyField to create a "team" of members for this business.
+    # We use a string 'CustomUser' because CustomUser is defined later in the file.
+    members = models.ManyToManyField(
+        'CustomUser',
+        related_name='business_profiles',
+        blank=True
+    )
+
     def __str__(self):
         return self.company_name or f"Profile {self.profile_id}"
 
 
-# Now, create the CustomUser model to match the ERD.
+# The CustomUser model is now simplified.
 class CustomUser(AbstractUser):
     class Role(models.TextChoices):
         ADMIN = 'admin', 'Admin'
         STAFF = 'staff', 'Staff'
         USER = 'user', 'User'
 
-    # Override the default integer ID with a UUID, matching the ERD's 'user_id'
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, verbose_name='user_id')
-
     email = models.EmailField(unique=True)
-    # Establish the One-to-One link to BusinessProfile
-    business_profile = models.OneToOneField(
-        BusinessProfile, 
-        on_delete=models.SET_NULL, 
-        null=True, 
-        blank=True
-    )
-
-    # Replace first_name and last_name with full_name
-    full_name = models.CharField(max_length=200)
     
-    # We don't need the default first_name and last_name anymore
+    # REMOVED: The OneToOneField that was causing the limitation.
+    # business_profile = models.OneToOneField(
+    #     BusinessProfile, 
+    #     on_delete=models.SET_NULL, 
+    #     null=True, 
+    #     blank=True
+    # )
+
+    full_name = models.CharField(max_length=200)
     first_name = None
     last_name = None
     
-    # Add the role field from the ERD
     role = models.CharField(
         max_length=10,
         choices=Role.choices,
         default=Role.USER
     )
     
-    # Tell Django to use 'email' for login instead of 'username'
     USERNAME_FIELD = 'email'
-    # 'username' and 'full_name' are now required fields when creating a user from the command line
     REQUIRED_FIELDS = ['username', 'full_name']
     
     def __str__(self):

@@ -1,9 +1,16 @@
 // lib/models/product.dart
-import 'user_profile.dart';
-
+import 'package:urbanroots_application/models/user_profile.dart';
 class Product {
   final String productId;
-  final BusinessProfile? sellerProfile;  // returned read-only field from API
+  
+  // MODIFIED: This field is now for SENDING data. It holds the UUID of the seller.
+  // When creating a new Product object in the app, you MUST provide this.
+  final String sellerProfileId;
+
+  // MODIFIED: This is for DISPLAYING data. It's the nested object from the API.
+  // Renamed from `sellerProfile` to `sellerProfileDetails` for clarity.
+  final BusinessProfile? sellerProfileDetails;
+
   final String name;
   final String description;
   final double price;
@@ -16,7 +23,8 @@ class Product {
 
   Product({
     required this.productId,
-    this.sellerProfile,
+    required this.sellerProfileId, // MODIFIED: Made this required.
+    this.sellerProfileDetails,      // MODIFIED: Renamed for clarity.
     required this.name,
     this.description = '',
     required this.price,
@@ -29,11 +37,19 @@ class Product {
   });
 
   factory Product.fromJson(Map<String, dynamic> json) {
+    // The nested details will come from the 'seller_profile_details' key we defined in the Django serializer
+    final detailsData = json['seller_profile_details'];
+
     return Product(
       productId: json['product_id'] as String,
-      sellerProfile: json['seller_profile'] != null
-          ? BusinessProfile.fromJson(json['seller_profile'])
+      
+      // We get the seller's ID from within the nested details object.
+      sellerProfileId: detailsData != null ? detailsData['profile_id'] as String : '',
+
+      sellerProfileDetails: detailsData != null
+          ? BusinessProfile.fromJson(detailsData)
           : null,
+      
       name: json['name'] ?? '',
       description: json['description'] ?? '',
       price: (json['price'] is String) ? double.parse(json['price']) : (json['price']?.toDouble() ?? 0.0),
@@ -46,27 +62,6 @@ class Product {
     );
   }
 
-  // toJson for creating a product: include seller_profile_id (write-only)
-  Map<String, dynamic> toCreateJson() {
-    return {
-      'name': name,
-      'description': description,
-      'price': price.toString(), // Send price as a string for consistency with DecimalField
-      'unit': unit,
-      'stock_quantity': stockQuantity,
-      'is_active': isActive,
-    };
-  }
-
-  // toJson for updates: do not send seller_profile_id (server forbids changing seller)
-  Map<String, dynamic> toUpdateJson() {
-    return {
-      'name': name,
-      'description': description,
-      'price': price.toString(),
-      'unit': unit,
-      'stock_quantity': stockQuantity,
-      'is_active': isActive,
-    };
-  }
+  // REMOVED: The toCreateJson and toUpdateJson methods are no longer needed,
+  // as the ProductService now builds the request manually using the object's properties.
 }

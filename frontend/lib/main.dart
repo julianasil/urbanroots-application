@@ -1,6 +1,8 @@
 // lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+// THIS IS THE MISSING LINE:
+import 'package:urbanroots_application/services/user_service.dart';
 import 'services/product_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart'; 
 import 'providers/order_provider.dart';
@@ -10,10 +12,7 @@ import 'providers/cart_provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/root_navigator.dart';
 
-
-
 Future<void> main() async {
-
   WidgetsFlutterBinding.ensureInitialized();
 
   await Supabase.initialize(
@@ -26,20 +25,17 @@ Future<void> main() async {
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => UserProvider()),
-        
-        // --- THIS IS THE FIX ---
-        // Provide the required 'service' to ProductProvider
+        ChangeNotifierProvider(
+          create: (ctx) => UserProvider(
+            userService: UserService(),
+          ),
+        ),
         ChangeNotifierProvider(
           create: (_) => ProductProvider(service: productService),
         ),
-
-        // For CartProvider, we can use a temporary placeholder for userId.
-        // We will likely refactor this later to be more robust.
         ChangeNotifierProvider(
-          create: (_) => CartProvider(userId: 'temp_user_id'), // Use a placeholder
+          create: (_) => CartProvider(userId: 'temp_user_id'),
         ),
-
         ChangeNotifierProvider(create: (_) => OrderProvider()),
       ],
       child: const MyApp(),
@@ -60,8 +56,6 @@ class MyApp extends StatelessWidget {
           title: 'UrbanRoots E-Commerce',
           theme: ThemeData(
             useMaterial3: true,
-
-            // Core ColorScheme
             colorScheme: ColorScheme.fromSeed(
               seedColor: const Color(0xFF4CAF50),
               primary: const Color(0xFF4CAF50),
@@ -69,16 +63,13 @@ class MyApp extends StatelessWidget {
               background: Colors.white,
               surface: Colors.white,
             ),
-
-            // Universal AppBar styling
             appBarTheme: const AppBarTheme(
-              backgroundColor: Color(0xFF4CAF50), // Green
-              foregroundColor: Colors.white,       // Text & icons
+              backgroundColor: Color(0xFF4CAF50),
+              foregroundColor: Colors.white,
               elevation: 2,
               centerTitle: true,
             ),
           ),
-          // Use 'isAuthenticated' which is the correct getter in the new UserProvider
           home: userProvider.isAuthenticated
               ? const RootNavigator()
               : const LoginScreen(),

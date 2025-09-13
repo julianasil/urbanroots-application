@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/product.dart';
+// Note: The 'user_profile.dart' import is not strictly needed here but is harmless.
 import '../models/user_profile.dart';
 
 
@@ -26,15 +27,14 @@ class ProductTile extends StatelessWidget {
     String? fullImageUrl;
     if (product.image != null && product.image!.isNotEmpty) {
       if (product.image!.startsWith('http')) {
-        // If the path is already a full URL, use it directly.
         fullImageUrl = product.image!;
       } else {
-        // If the path is relative (e.g., /media/...), prepend the base server URL.
         fullImageUrl = 'http://127.0.0.1:8000${product.image}';
       }
     }
 
-    final String sellerName = product.sellerProfile?.companyName ?? 'Unknown Seller';
+    // MODIFIED: Changed product.sellerProfile to product.sellerProfileDetails
+    final String sellerName = product.sellerProfileDetails?.companyName ?? 'Unknown Seller';
 
      return Card(
       margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),

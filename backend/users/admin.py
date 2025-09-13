@@ -4,34 +4,37 @@ from django.contrib.auth.admin import UserAdmin
 from .models import CustomUser, BusinessProfile
 
 class CustomUserAdmin(UserAdmin):
-    # This is the configuration for the CustomUser model in the admin panel.
     model = CustomUser
-
-    # Which fields to display in the user list view
-    list_display = ('email', 'username', 'full_name', 'role', 'is_staff')
-
-    # Make the list view searchable by these fields
-    search_fields = ('email', 'username', 'full_name')
-
-    # Make the list view filterable by these fields
-    list_filter = ('role', 'is_staff', 'is_superuser', 'groups')
     
-    # How the fields are arranged in the "Edit User" form
+    # This defines the columns shown in the list view of all users.
+    list_display = ['email', 'username', 'full_name', 'role', 'is_staff']
+    
+    # MODIFIED: This is the main fix. We are manually defining the layout
+    # of the user edit page to remove 'first_name' and 'last_name' and add 'full_name'.
     fieldsets = (
-        (None, {'fields': ('email', 'password')}),
-        ('Personal Info', {'fields': ('full_name', 'username', 'business_profile')}),
-        ('Permissions', {'fields': ('role', 'is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
+        (None, {'fields': ('username', 'password')}),
+        ('Personal info', {'fields': ('full_name', 'email')}), # Changed from first_name, last_name
+        ('Permissions', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
         ('Important dates', {'fields': ('last_login', 'date_joined')}),
+        ('Extra Info', {'fields': ('role',)}), # Added our custom 'role' field here
+    )
+    
+    # This tells the admin which fields to use for searching.
+    search_fields = ('email', 'username', 'full_name')
+    
+    # This tells the admin which fields to use for filtering.
+    list_filter = ('is_staff', 'is_superuser', 'is_active', 'groups')
+    
+    # This defines the fields for the "add user" page.
+    add_fieldsets = UserAdmin.add_fieldsets + (
+        (None, {'fields': ('full_name', 'email', 'role')}),
     )
 
-    # Fields for the "Add User" form
-    add_fieldsets = (
-        (None, {
-            'classes': ('wide',),
-            'fields': ('email', 'full_name', 'username', 'password', 'password2'),
-        }),
-    )
+class BusinessProfileAdmin(admin.ModelAdmin):
+    model = BusinessProfile
+    list_display = ('company_name', 'business_type', 'contact_number')
+    filter_horizontal = ('members',)
 
-# Register your models with the admin site so you can manage them
+# We register the models with their custom admin configurations.
 admin.site.register(CustomUser, CustomUserAdmin)
-admin.site.register(BusinessProfile)
+admin.site.register(BusinessProfile, BusinessProfileAdmin)

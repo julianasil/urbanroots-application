@@ -1,11 +1,9 @@
 // frontend/lib/screens/market_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../models/user_profile.dart';
 import '../../providers/product_provider.dart';
-import '../../providers/user_provider.dart'; // We need this to check ownership
-import '../../services/api_service.dart'; // We need this to get our own profile
-import '../../widgets/product_tile.dart'; // Import the new tile
+import '../../providers/user_provider.dart';
+import '../../widgets/product_tile.dart';
 import 'product_detail_screen.dart';
 import 'edit_product_screen.dart';
 
@@ -17,59 +15,58 @@ class MarketScreen extends StatefulWidget {
 }
 
 class _MarketScreenState extends State<MarketScreen> {
-  // We now need to fetch both products and the user's own profile
-  late Future<void> _dataFuture;
-  UserProfile? _currentUserProfile;
+  late Future<void> _productsFuture;
 
   @override
   void initState() {
     super.initState();
-    _dataFuture = _loadInitialData();
+    _productsFuture = _loadProducts();
   }
 
-  // A single method to load all necessary data
-  Future<void> _loadInitialData() async {
-    // Use Future.wait to run both API calls in parallel for speed
-    await Future.wait([
-      Provider.of<ProductProvider>(context, listen: false).loadProducts(),
-      _loadUserProfile(),
-    ]);
-  }
-  
-  // Helper to load the user's own profile to check ownership
-  Future<void> _loadUserProfile() async {
-    try {
-      _currentUserProfile = await ApiService().getMyProfile();
-    } catch(e) {
-      print("Could not load user profile on market screen: $e");
-    }
+  Future<void> _loadProducts() {
+    return Provider.of<ProductProvider>(context, listen: false).loadProducts();
   }
 
   Future<void> _refreshData() async {
-    setState(() {
-      _dataFuture = _loadInitialData();
-    });
+    // Refreshing the product list is all that's needed here.
+    await _loadProducts();
   }
 
   @override
   Widget build(BuildContext context) {
+    // MODIFIED: We only need to consume the providers directly in the builder now.
     return Scaffold(
       appBar: AppBar(
         title: const Text('UrbanRoots Marketplace'),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(builder: (ctx) => const EditProductScreen()),
+      // MODIFIED: The FAB is now built within a Consumer to react to state changes.
+      floatingActionButton: Consumer<UserProvider>(
+        builder: (context, userProvider, child) {
+          final activeProfile = userProvider.activeBusinessProfile;
+          // Show the "Add Product" button only if there's an active profile
+          // and its type is 'seller' or 'both'.
+          final canSell = activeProfile != null &&
+              (activeProfile.businessType == 'seller' || activeProfile.businessType == 'both');
+
+          if (!canSell) {
+            return const SizedBox.shrink(); // Return an empty widget if user can't sell
+          }
+
+          return FloatingActionButton(
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (ctx) => const EditProductScreen()),
+              );
+            },
+            child: const Icon(Icons.add),
+            tooltip: 'Add a new product',
           );
         },
-        child: const Icon(Icons.add),
-        tooltip: 'Add a new product',
       ),
       body: RefreshIndicator(
         onRefresh: _refreshData,
         child: FutureBuilder(
-          future: _dataFuture,
+          future: _productsFuture,
           builder: (ctx, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
@@ -78,38 +75,23 @@ class _MarketScreenState extends State<MarketScreen> {
               return Center(child: Text('An error occurred: ${snapshot.error}'));
             }
             
-            return Consumer<ProductProvider>(
-              builder: (ctx, productData, child) {
-                if (productData.items.isEmpty) {
+            return Consumer2<ProductProvider, UserProvider>(
+              builder: (ctx, productProvider, userProvider, child) {
+                if (productProvider.items.isEmpty) {
                   return const Center(child: Text('No products found.'));
                 }
 
-                // Use a ListView for a compact, scrollable list
+                // MODIFIED: Get the single active profile ID.
+                final activeProfileId = userProvider.activeBusinessProfile?.profileId;
+
                 return ListView.builder(
-                  itemCount: productData.items.length,
+                  itemCount: productProvider.items.length,
                   itemBuilder: (ctx, i) {
-                    final product = productData.items[i];
+                    final product = productProvider.items[i];
 
-                    final loggedInUserProfileId = _currentUserProfile?.businessProfile?.profileId.trim();
-                    final productSellerProfileId = product.sellerProfile?.profileId.trim();
-    
-    // Also, ensure neither is null before comparing.
-                    final bool canManage = loggedInUserProfileId != null &&
-                                           productSellerProfileId != null &&
-                                           loggedInUserProfileId == productSellerProfileId;
-
-
-                    print('--- Ownership Check for Product: ${product.name} ---');
-                    print('Logged-in User\'s Profile ID: $loggedInUserProfileId (Type: ${loggedInUserProfileId.runtimeType})');
-                    print('Product\'s Seller Profile ID:   $productSellerProfileId (Type: ${productSellerProfileId.runtimeType})');
-                    
-                    // --- Ownership Check ---
-                    // The Edit/Delete buttons will only show if the logged-in user's
-                    // profile ID matches the product's seller profile ID.
-                    //final bool canManage = _currentUserProfile?.businessProfile?.profileId == product.sellerProfile;
-
-                    print('Can Manage? $canManage');
-                    print('-----------------------------------------');
+                    // MODIFIED: The ownership check is now a simple string comparison.
+                    // "Can the user manage this product if its seller ID matches their active profile ID?"
+                    final bool canManage = product.sellerProfileId == activeProfileId;
                     
                     return ProductTile(
                       product: product,
@@ -129,7 +111,6 @@ class _MarketScreenState extends State<MarketScreen> {
                         );
                       },
                       onDelete: () {
-                        // Show a confirmation dialog before deleting
                         showDialog(
                           context: context,
                           builder: (ctx) => AlertDialog(
@@ -143,8 +124,7 @@ class _MarketScreenState extends State<MarketScreen> {
                               TextButton(
                                 child: const Text('Yes'),
                                 onPressed: () {
-                                  Provider.of<ProductProvider>(context, listen: false)
-                                      .deleteProduct(product.productId);
+                                  productProvider.deleteProduct(product.productId);
                                   Navigator.of(ctx).pop();
                                 },
                               ),

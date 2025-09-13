@@ -7,69 +7,71 @@ from rest_framework.generics import ListAPIView
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
-# This is the view that was missing, for fetching the CustomUser details.
 class UserProfileView(generics.RetrieveAPIView):
     """
     View to retrieve the profile of the currently authenticated user.
-    We use RetrieveAPIView because we only want to GET the data.
     """
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated]
 
     def get_object(self):
-        # This special method returns the user object associated with the request token.
         return self.request.user
 
-# This view is for GETTING or UPDATING an existing business profile.
-class BusinessProfileView(generics.RetrieveUpdateAPIView):
+class BusinessProfileDetailView(generics.RetrieveUpdateAPIView):
     """
-    Allows the authenticated user to retrieve or update their own business profile.
+    Allows a team member to retrieve or update a specific business profile by its ID.
     """
     serializer_class = BusinessProfileSerializer
     permission_classes = [IsAuthenticated]
+    lookup_field = 'profile_id'
 
-    def get_object(self):
-        profile = self.request.user.business_profile
-        # This check prevents an error if the user has no profile yet.
-        if profile is None:
-            raise serializers.ValidationError("User does not have a business profile.")
-        return profile
+    def get_queryset(self):
+        # Users can only interact with profiles they are a member of.
+        if self.request.user and self.request.user.is_authenticated:
+            return self.request.user.business_profiles.all()
+        return BusinessProfile.objects.none()
 
-# This view is specifically for CREATING a new business profile.
 class BusinessProfileCreateView(generics.CreateAPIView):
     """
-    Allows a new user to create their business profile.
+    Allows an authenticated user to create a new business profile.
+    The creator will be automatically added as the first member of the business.
     """
     serializer_class = BusinessProfileSerializer
     permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
-        user = self.request.user
-        # This check prevents a user from creating more than one profile.
-        if user.business_profile is not None:
-            raise serializers.ValidationError("User already has a business profile.")
-        
-        # Save the new profile and link it to the user who made the request.
-        profile = serializer.save()
-        user.business_profile = profile
-        user.save()
+        business_profile = serializer.save()
+        business_profile.members.add(self.request.user)
 
-class UnclaimedBusinessProfileListView(ListAPIView):
+class MyBusinessProfilesListView(ListAPIView):
     """
-    Provides a list of business profiles that are not yet associated
-    with any user.
+    Provides a list of all business profiles the authenticated user is a member of.
     """
     serializer_class = BusinessProfileSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        # The double underscore queries the reverse relationship.
-        # We are looking for profiles where the related 'customuser' is null.
-        return BusinessProfile.objects.filter(customuser__isnull=True)
-    
-class ClaimBusinessProfileView(APIView):
+        if self.request.user and self.request.user.is_authenticated:
+            return self.request.user.business_profiles.all()
+        return BusinessProfile.objects.none()
+
+# --- ADDED: New views for the "Open Joining" feature ---
+
+class JoinableBusinessProfileListView(ListAPIView):
     """
-    Allows an authenticated user to claim an existing, unclaimed business profile.
+    Provides a list of all business profiles that a user can potentially join.
+    """
+    serializer_class = BusinessProfileSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        # This returns all business profiles in the system, so users can see all options.
+        return BusinessProfile.objects.all()
+    
+class JoinBusinessProfileView(APIView):
+    """
+    Allows a user to "join" an existing business profile, adding them
+    to its list of members.
     """
     permission_classes = [IsAuthenticated]
 
@@ -77,39 +79,26 @@ class ClaimBusinessProfileView(APIView):
         user = request.user
         profile_id = request.data.get('profile_id')
 
-        if user.business_profile is not None:
-            return Response(
-                {'error': 'User already has a business profile.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
         if not profile_id:
-            return Response(
-                {'error': 'Profile ID is required.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({'error': 'Profile ID is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            profile_to_claim = BusinessProfile.objects.get(profile_id=profile_id)
+            profile_to_join = BusinessProfile.objects.get(profile_id=profile_id)
             
-            # Check if the profile is already claimed by another user
-            if hasattr(profile_to_claim, 'customuser'):
+            # This check prevents a user from joining the same business twice.
+            if user in profile_to_join.members.all():
                 return Response(
-                    {'error': 'This profile is already claimed.'},
+                    {'error': f'You are already a member of {profile_to_join.company_name}.'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
+            
+            # The core logic: Add the current user to the members list.
+            profile_to_join.members.add(user)
 
-            # All checks passed, link the profile to the user
-            user.business_profile = profile_to_claim
-            user.save()
             return Response(
-                {'success': 'Profile claimed successfully.'},
+                {'success': f'You have successfully joined {profile_to_join.company_name}.'},
                 status=status.HTTP_200_OK
             )
 
         except BusinessProfile.DoesNotExist:
-            return Response(
-                {'error': 'Profile not found.'},
-                status=status.HTTP_404_NOT_FOUND
-            )
-
+            return Response({'error': 'Profile not found.'}, status=status.HTTP_404_NOT_FOUND)
