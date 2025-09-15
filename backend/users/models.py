@@ -4,7 +4,7 @@ import uuid
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 
-# The BusinessProfile model is now the primary place for the relationship.
+# The BusinessProfile model remains unchanged.
 class BusinessProfile(models.Model):
     class BusinessType(models.TextChoices):
         SELLER = 'seller', 'Seller'
@@ -20,9 +20,6 @@ class BusinessProfile(models.Model):
         choices=BusinessType.choices,
         default=BusinessType.BUYER
     )
-
-    # ADDED: A ManyToManyField to create a "team" of members for this business.
-    # We use a string 'CustomUser' because CustomUser is defined later in the file.
     members = models.ManyToManyField(
         'CustomUser',
         related_name='business_profiles',
@@ -33,7 +30,7 @@ class BusinessProfile(models.Model):
         return self.company_name or f"Profile {self.profile_id}"
 
 
-# The CustomUser model is now simplified.
+# --- UPDATED CustomUser Model ---
 class CustomUser(AbstractUser):
     class Role(models.TextChoices):
         ADMIN = 'admin', 'Admin'
@@ -43,17 +40,17 @@ class CustomUser(AbstractUser):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, verbose_name='user_id')
     email = models.EmailField(unique=True)
     
-    # REMOVED: The OneToOneField that was causing the limitation.
-    # business_profile = models.OneToOneField(
-    #     BusinessProfile, 
-    #     on_delete=models.SET_NULL, 
-    #     null=True, 
-    #     blank=True
-    # )
+    # --- ADDED FIELDS ---
+    # Profile picture. Requires Pillow to be installed: `pip install Pillow`
+    profile_picture = models.ImageField(upload_to='profile_pictures/', null=True, blank=True)
+    bio = models.TextField(max_length=500, blank=True)
+    phone_number = models.CharField(max_length=20, blank=True)
 
-    full_name = models.CharField(max_length=200)
-    first_name = None
-    last_name = None
+    # --- MODIFICATIONS ---
+    # We will now use Django's built-in first_name and last_name fields.
+    # So, we remove the `first_name = None` and `last_name = None` overrides.
+    # We also remove the custom `full_name` field.
+    # `first_name` and `last_name` are already part of the parent `AbstractUser`.
     
     role = models.CharField(
         max_length=10,
@@ -62,7 +59,14 @@ class CustomUser(AbstractUser):
     )
     
     USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['username', 'full_name']
+    # Update REQUIRED_FIELDS to use first_name and last_name
+    REQUIRED_FIELDS = ['username', 'first_name', 'last_name']
     
     def __str__(self):
         return self.email
+
+    # ADDED: A property to easily get the user's full name.
+    @property
+    def full_name(self):
+        "Returns the user's full name."
+        return f"{self.first_name} {self.last_name}".strip()

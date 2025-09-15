@@ -4,7 +4,10 @@ import 'package:provider/provider.dart';
 import '../models/user_profile.dart';
 import '../providers/user_provider.dart';
 import '../services/user_service.dart';
-import 'edit_profile_screen.dart';
+// --- FIX: This should now point to your new screen for creating businesses ---
+// import 'edit_profile_screen.dart'; // We are no longer using this here.
+// To make this file work, you should create the new screen. For now, I'll add a placeholder.
+
 
 class BusinessSelectionScreen extends StatelessWidget {
   const BusinessSelectionScreen({super.key});
@@ -62,6 +65,7 @@ class SelectOrJoinBusinessTab extends StatelessWidget {
               color: isActive ? Colors.green[50] : null,
               child: ListTile(
                 title: Text(profile.companyName ?? 'Unnamed Business'),
+                // --- FIX: This now works because of the extension below ---
                 subtitle: Text(profile.businessType.capitalize()),
                 trailing: isActive ? const Icon(Icons.check_circle, color: Colors.green) : const Icon(Icons.radio_button_unchecked),
                 onTap: () {
@@ -104,7 +108,18 @@ class CreateBusinessTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const EditProfileScreen(isEmbedded: true);
+    // --- FIX: The 'isEmbedded' parameter is gone because EditProfileScreen was refactored. ---
+    // You should create a new screen 'CreateEditBusinessScreen' and call it here.
+    // For now, here is a placeholder so the app runs:
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.all(16.0),
+        child: Text(
+          'This tab should contain your new CreateEditBusinessScreen widget.',
+          textAlign: TextAlign.center,
+        ),
+      ),
+    );
   }
 }
 
@@ -123,7 +138,6 @@ class _JoinProfileSheetState extends State<JoinProfileSheet> {
   @override
   void initState() {
     super.initState();
-    // MODIFIED: Calling the CORRECT, renamed service method
     _joinableProfilesFuture = UserService().fetchJoinableBusinessProfiles();
   }
 
@@ -173,7 +187,6 @@ class _JoinProfileSheetState extends State<JoinProfileSheet> {
                               );
 
                               if (confirmed == true && mounted) {
-                                // MODIFIED: Calling the CORRECT, renamed provider method
                                 await userProvider.joinBusinessProfile(profile.profileId);
                                 Navigator.of(context).pop();
                                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Successfully joined profile!')));
@@ -196,5 +209,15 @@ class _JoinProfileSheetState extends State<JoinProfileSheet> {
         ),
       ),
     );
+  }
+}
+
+// --- FIX: Add this extension to the bottom of your file ---
+extension StringExtension on String {
+  String capitalize() {
+    if (isEmpty) {
+      return this;
+    }
+    return "${this[0].toUpperCase()}${substring(1)}";
   }
 }

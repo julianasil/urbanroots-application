@@ -4,9 +4,9 @@ import 'package:provider/provider.dart';
 import '../models/user_profile.dart';
 import '../providers/user_provider.dart';
 import 'business_selection_screen.dart';
+import 'edit_profile_screen.dart'; // --- ADDED: Import the edit screen ---
 import 'login_screen.dart';
 
-// MODIFIED: Changed back to a StatefulWidget
 class AccountScreen extends StatefulWidget {
   const AccountScreen({super.key});
 
@@ -17,49 +17,47 @@ class AccountScreen extends StatefulWidget {
 class _AccountScreenState extends State<AccountScreen> {
   @override
   Widget build(BuildContext context) {
-    // We get the providers here
-    final userProvider = Provider.of<UserProvider>(context);
-    final supabaseUser = userProvider.currentUser;
+    // --- KEY CHANGE: Using a Consumer for cleaner state access ---
+    return Consumer<UserProvider>(
+      builder: (context, userProvider, child) {
+        // --- KEY CHANGE: Getting the detailed user profile from our Django backend ---
+        final userProfile = userProvider.user;
+        final activeBusinessProfile = userProvider.activeBusinessProfile;
 
-    if (supabaseUser == null) {
-      // It's good practice to show a scaffold even when loading
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
+        // Show a loading indicator while the profile is being fetched.
+        if (userProfile == null) {
+          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        }
 
-    final userProfile = UserProfile(
-      id: supabaseUser.id,
-      email: supabaseUser.email ?? 'No Email',
-      username: supabaseUser.userMetadata?['username'] ?? 'No Username',
-      fullName: supabaseUser.userMetadata?['full_name'] ?? 'No Name',
-      role: 'user',
-    );
-    
-    final activeBusinessProfile = userProvider.activeBusinessProfile;
-
-    return Scaffold(
-      backgroundColor: Colors.grey[100],
-      appBar: AppBar(
-        title: const Text('My Account'),
-        elevation: 0,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 20.0),
-        children: [
-          _buildUserHeader(userProfile),
-          const SizedBox(height: 24),
-          _buildPersonalInfoCard(userProfile),
-          const SizedBox(height: 24),
-          _buildActiveBusinessCard(context, activeBusinessProfile),
-          const SizedBox(height: 32),
-          _buildLogoutButton(context),
-        ],
-      ),
+        // The main UI builds once we have the user profile.
+        return Scaffold(
+          backgroundColor: Colors.grey[100],
+          appBar: AppBar(
+            title: const Text('My Account'),
+            elevation: 0,
+          ),
+          body: ListView(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 20.0),
+            children: [
+              _buildUserHeader(userProfile),
+              const SizedBox(height: 24),
+              // Pass context to the card to handle navigation
+              _buildPersonalInfoCard(context, userProfile),
+              const SizedBox(height: 24),
+              _buildActiveBusinessCard(context, activeBusinessProfile),
+              const SizedBox(height: 32),
+              _buildLogoutButton(context),
+            ],
+          ),
+        );
+      },
     );
   }
 
-  // --- WIDGET BUILDERS ---
+  // --- WIDGET BUILDERS (with modifications) ---
 
   Widget _buildUserHeader(UserProfile profile) {
+    // This widget can stay the same as fullName and username are available.
     return Column(
       children: [
         CircleAvatar(radius: 45, child: Text(profile.fullName.isNotEmpty ? profile.fullName[0].toUpperCase() : '?')),
@@ -70,7 +68,8 @@ class _AccountScreenState extends State<AccountScreen> {
     );
   }
 
-  Widget _buildPersonalInfoCard(UserProfile profile) {
+  // --- KEY CHANGE: This card is now updated to show new info and has a working button ---
+  Widget _buildPersonalInfoCard(BuildContext context, UserProfile profile) {
     return Card(
       elevation: 1,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -82,12 +81,23 @@ class _AccountScreenState extends State<AccountScreen> {
             const Text('Personal Information', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             _InfoTile(icon: Icons.email_outlined, title: 'Email', subtitle: profile.email),
-            _InfoTile(icon: Icons.shield_outlined, title: 'Role', subtitle: profile.role.capitalize()),
+            
+            // --- ADDED: Display phone number if it exists ---
+            if (profile.phoneNumber != null && profile.phoneNumber!.isNotEmpty)
+              _InfoTile(icon: Icons.phone_outlined, title: 'Phone', subtitle: profile.phoneNumber!),
+
+            // --- ADDED: Display bio if it exists ---
+            if (profile.bio != null && profile.bio!.isNotEmpty)
+              _InfoTile(icon: Icons.person_outline, title: 'Bio', subtitle: profile.bio!),
+
             const SizedBox(height: 16),
             Center(
               child: OutlinedButton(
                 onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Edit Personal Profile screen not yet implemented.')));
+                  // --- ACTIVATED: Navigate to the EditProfileScreen ---
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (ctx) => const EditProfileScreen()),
+                  );
                 },
                 child: const Text('Edit Personal Info'),
               ),
@@ -97,6 +107,10 @@ class _AccountScreenState extends State<AccountScreen> {
       ),
     );
   }
+
+  // No changes are needed for the widgets below this line.
+  // ... (rest of your file: _buildActiveBusinessCard, _buildLogoutButton, _InfoTile, etc.)
+  // The following is copied from your original file for completeness.
 
   Widget _buildActiveBusinessCard(BuildContext context, BusinessProfile? activeProfile) {
     return Card(
@@ -145,7 +159,7 @@ class _AccountScreenState extends State<AccountScreen> {
       children: [
         _InfoTile(icon: Icons.business, title: 'Company Name', subtitle: profile.companyName ?? 'N/A'),
         _InfoTile(icon: Icons.phone, title: 'Contact', subtitle: profile.contactNumber),
-        _InfoTile(icon: Icons.work_outline, title: 'Business Type', subtitle: profile.businessType.capitalize()),
+        _InfoTile(icon: Icons.work_outline, title: 'Business Type', subtitle: profile.businessType), // Removed capitalize for simplicity
       ],
     );
   }
@@ -157,10 +171,7 @@ class _AccountScreenState extends State<AccountScreen> {
         label: Text('Log Out', style: TextStyle(color: Colors.red[700], fontWeight: FontWeight.bold)),
         style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 30), backgroundColor: Colors.red[50], shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
         onPressed: () async {
-          // 'context' is available here because we are in the State class
           await Provider.of<UserProvider>(context, listen: false).logout();
-          
-          // 'mounted' is available here because this is a StatefulWidget
           if (mounted) {
             Navigator.of(context).pushAndRemoveUntil(
               MaterialPageRoute(builder: (context) => const LoginScreen()),

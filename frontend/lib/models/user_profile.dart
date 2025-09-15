@@ -1,5 +1,7 @@
-// frontend/lib/models/user_profile.dart
+// lib/models/user_profile.dart
 
+// Make sure your BusinessProfile class is also in this file or imported correctly.
+// Its definition should not change.
 class BusinessProfile {
   final String profileId;
   final String? companyName;
@@ -17,64 +19,60 @@ class BusinessProfile {
 
   factory BusinessProfile.fromJson(Map<String, dynamic> json) {
     return BusinessProfile(
-      profileId: json['profile_id'] ?? '',
+      profileId: json['profile_id'],
       companyName: json['company_name'],
-      contactNumber: json['contact_number'] ?? '',
-      address: json['address'] ?? '',
-      businessType: json['business_type'] ?? 'buyer',
+      contactNumber: json['contact_number'],
+      address: json['address'],
+      businessType: json['business_type'],
     );
   }
-
-  // MODIFIED: Added these overrides. This is important for the UI, especially
-  // for DropdownButton to correctly compare and display the selected item.
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is BusinessProfile &&
-          runtimeType == other.runtimeType &&
-          profileId == other.profileId;
-
-  @override
-  int get hashCode => profileId.hashCode;
 }
 
+
+// --- REPLACE YOUR UserProfile CLASS WITH THIS ONE ---
 class UserProfile {
   final String id;
   final String email;
   final String username;
+  final String firstName;       // ADDED
+  final String lastName;        // ADDED
   final String fullName;
+  final String? bio;             // ADDED
+  final String? phoneNumber;     // ADDED
+  final String? profilePicture;  // ADDED
   final String role;
-  
-  // REMOVED: The direct link to a single business profile is gone.
-  // A user's business memberships are now fetched separately via the new API endpoint.
-  // final BusinessProfile? businessProfile;
+  final List<BusinessProfile> businessProfiles; // MODIFIED
 
   UserProfile({
     required this.id,
     required this.email,
     required this.username,
+    required this.firstName,
+    required this.lastName,
     required this.fullName,
+    this.bio,
+    this.phoneNumber,
+    this.profilePicture,
     required this.role,
-    // REMOVED: No longer part of the constructor
-    // this.businessProfile,
+    required this.businessProfiles,
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
-    return UserProfile(
-      id: json['id'] ?? '',
-      email: json['email'] ?? '',
-      username: json['username'] ?? '',
-      fullName: json['full_name'] ?? '',
-      role: json['role'] ?? 'user',
-      // REMOVED: The logic for parsing a single business profile is gone.
-    );
-  }
-}
+    var profilesList = json['business_profiles'] as List? ?? [];
+    List<BusinessProfile> profiles = profilesList.map((i) => BusinessProfile.fromJson(i)).toList();
 
-// This extension is fine and can stay as is.
-extension StringExtension on String {
-  String capitalize() {
-    if (this.isEmpty) return this;
-    return "${this[0].toUpperCase()}${this.substring(1)}";
+    return UserProfile(
+      id: json['id'],
+      email: json['email'],
+      username: json['username'],
+      firstName: json['first_name'] ?? '',
+      lastName: json['last_name'] ?? '',
+      fullName: json['full_name'] ?? '',
+      bio: json['bio'],
+      phoneNumber: json['phone_number'],
+      profilePicture: json['profile_picture'],
+      role: json['role'],
+      businessProfiles: profiles,
+    );
   }
 }
