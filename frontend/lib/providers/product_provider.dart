@@ -18,7 +18,7 @@ class ProductProvider extends ChangeNotifier {
   Future<void> loadProducts({Map<String, String>? filters}) async {
     isLoading = true;
     try {
-      //notifyListeners();
+      notifyListeners(); // MODIFIED: Uncommented for better UI feedback on loading start.
       final products = await service.fetchProducts(queryParameters: filters);
       _items = products;
       error = null;
@@ -26,17 +26,25 @@ class ProductProvider extends ChangeNotifier {
       error = e.toString();
     } finally {
       isLoading = false;
-      //notifyListeners();
+      notifyListeners(); // MODIFIED: Uncommented for better UI feedback on loading end.
     }
   }
 
   /// Create a new product on backend
-    Future<Product?> createProduct(Product product, {File? imageFile}) async {
+  // MODIFIED: Added imageBytes and imageName to support web image uploads.
+  Future<Product?> createProduct(
+    Product product, {
+    File? imageFile,
+    Uint8List? imageBytes,
+    String? imageName,
+  }) async {
     try {
       // The service layer will handle sending the auth token.
       final created = await service.createProduct(
         product,
         imageFile: imageFile,
+        imageBytes: imageBytes, // MODIFIED: Pass imageBytes to the service.
+        imageName: imageName,   // MODIFIED: Pass imageName to the service.
       );
       _items.insert(0, created);
       notifyListeners();
@@ -49,9 +57,21 @@ class ProductProvider extends ChangeNotifier {
   }
 
   /// Update an existing product
-  Future<Product?> updateProduct(Product product, {File? imageFile}) async {
+  // MODIFIED: Added imageBytes and imageName to support web image uploads.
+  Future<Product?> updateProduct(
+    Product product, {
+    File? imageFile,
+    Uint8List? imageBytes,
+    String? imageName,
+  }) async {
     try {
-      final updated = await service.updateProduct(product.productId, product, imageFile: imageFile);
+      final updated = await service.updateProduct(
+        product.productId,
+        product,
+        imageFile: imageFile,
+        imageBytes: imageBytes, // MODIFIED: Pass imageBytes to the service.
+        imageName: imageName,   // MODIFIED: Pass imageName to the service.
+      );
       final idx = _items.indexWhere((p) => p.productId == updated.productId);
       if (idx >= 0) _items[idx] = updated;
       notifyListeners();
@@ -86,7 +106,19 @@ class ProductProvider extends ChangeNotifier {
   }
 
   /// Redirect addProduct to createProduct for consistency
-  Future<Product?> addProduct(Product product, {required String sellerProfileId, File? imageFile}) {
-    return createProduct(product, imageFile: imageFile);
+  // MODIFIED: Added imageBytes and imageName to keep this method consistent.
+  Future<Product?> addProduct(
+    Product product, {
+    required String sellerProfileId,
+    File? imageFile,
+    Uint8List? imageBytes,
+    String? imageName,
+  }) {
+    return createProduct(
+      product,
+      imageFile: imageFile,
+      imageBytes: imageBytes,
+      imageName: imageName,
+    );
   }
 }

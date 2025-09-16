@@ -1,13 +1,13 @@
 // frontend/lib/screens/edit_profile_screen.dart
 import 'package:flutter/material.dart';
-import '../models/user_profile.dart'; // We'll need this to pass existing data
-import '../services/api_service.dart';
+import 'package:provider/provider.dart';
+// --- MODIFIED: We will need the user service now ---
+import '../services/user_service.dart'; 
+import '../providers/user_provider.dart';
 
+// --- MODIFIED: The screen no longer needs to accept a BusinessProfile ---
 class EditProfileScreen extends StatefulWidget {
-
-  final BusinessProfile? profile;
-
-  const EditProfileScreen({super.key, this.profile});
+  const EditProfileScreen({super.key});
 
   @override
   State<EditProfileScreen> createState() => _EditProfileScreenState();
@@ -15,74 +15,85 @@ class EditProfileScreen extends StatefulWidget {
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _apiService = ApiService();
+  // --- MODIFIED: Use the UserService ---
+  final _userService = UserService();
 
-  late final TextEditingController _companyNameController;
-  late final TextEditingController _contactNumberController;
-  late final TextEditingController _addressController;
-  String _businessType = 'buyer'; // Default value
-
+  // --- NEW: Controllers for the user's personal info ---
+  late final TextEditingController _firstNameController;
+  late final TextEditingController _lastNameController;
+  late final TextEditingController _bioController;
+  late final TextEditingController _phoneNumberController;
+  
   bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    // Pre-fill the form fields if we are editing an existing profile
-    _companyNameController = TextEditingController(text: widget.profile?.companyName ?? '');
-    _contactNumberController = TextEditingController(text: widget.profile?.contactNumber ?? '');
-    _addressController = TextEditingController(text: widget.profile?.address ?? '');
-    _businessType = widget.profile?.businessType ?? 'buyer';
+    // --- MODIFIED: Populate controllers with the current user's data ---
+    final user = Provider.of<UserProvider>(context, listen: false).user;
+    
+    _firstNameController = TextEditingController(text: user?.firstName ?? '');
+    _lastNameController = TextEditingController(text: user?.lastName ?? '');
+    _bioController = TextEditingController(text: user?.bio ?? '');
+    _phoneNumberController = TextEditingController(text: user?.phoneNumber ?? '');
   }
 
-  Future<void> _saveProfile() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
+  @override
+  void dispose() {
+    // --- MODIFIED: Dispose the new controllers ---
+    _firstNameController.dispose();
+    _lastNameController.dispose();
+    _bioController.dispose();
+    _phoneNumberController.dispose();
+    super.dispose();
+  }
 
-    setState(() { _isLoading = true; });
+  // --- REWRITTEN: This method now saves the USER profile ---
+  Future<void> _saveProfile() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _isLoading = true);
+
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
 
     try {
+      // Create a map of the data to send to the API.
       final profileData = {
-        'company_name': _companyNameController.text,
-        'contact_number': _contactNumberController.text,
-        'address': _addressController.text,
-        'business_type': _businessType,
+        'first_name': _firstNameController.text,
+        'last_name': _lastNameController.text,
+        'bio': _bioController.text,
+        'phone_number': _phoneNumberController.text,
       };
 
-      if (widget.profile == null) {
-        // We are creating a new profile
-        await _apiService.createMyProfile(profileData);
-      } else {
-        // We are updating an existing profile (You'll need to add this method to ApiService)
-        // await _apiService.updateMyProfile(profileData); 
-        print("Update logic to be implemented"); // Placeholder for now
-      }
+      // We will create the `updateUserProfile` methods in the service and provider next.
+      await userProvider.updateUserProfile(profileData);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profile saved successfully!'), backgroundColor: Colors.green),
-        );
-        // Go back to the previous screen
-        Navigator.of(context).pop(true); // Pop with 'true' to indicate success
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Profile updated successfully!'),
+          backgroundColor: Colors.green,
+        ));
+        Navigator.of(context).pop(); // Go back to the previous screen
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: Colors.red),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ));
       }
     } finally {
       if (mounted) {
-        setState(() { _isLoading = false; });
+        setState(() => _isLoading = false);
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    // --- REWRITTEN: The entire form is new ---
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.profile == null ? 'Create Business Profile' : 'Edit Business Profile'),
+        title: const Text('Edit Your Profile'),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -92,44 +103,33 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               TextFormField(
-                controller: _companyNameController,
-                decoration: const InputDecoration(labelText: 'Company Name (Optional)'),
+                controller: _firstNameController,
+                decoration: const InputDecoration(labelText: 'First Name'),
+                validator: (v) => v!.isEmpty ? 'First name is required' : null,
               ),
               const SizedBox(height: 16),
               TextFormField(
-                controller: _contactNumberController,
-                decoration: const InputDecoration(labelText: 'Contact Number'),
-                validator: (value) => value!.isEmpty ? 'Please enter a contact number' : null,
+                controller: _lastNameController,
+                decoration: const InputDecoration(labelText: 'Last Name'),
+                validator: (v) => v!.isEmpty ? 'Last name is required' : null,
               ),
               const SizedBox(height: 16),
               TextFormField(
-                controller: _addressController,
-                decoration: const InputDecoration(labelText: 'Address'),
-                maxLines: 3,
-                validator: (value) => value!.isEmpty ? 'Please enter an address' : null,
+                controller: _phoneNumberController,
+                decoration: const InputDecoration(labelText: 'Phone Number'),
               ),
-              const SizedBox(height: 24),
-              const Text('I am a:', style: TextStyle(fontWeight: FontWeight.bold)),
-              DropdownButton<String>(
-                value: _businessType,
-                isExpanded: true,
-                items: const [
-                  DropdownMenuItem(value: 'buyer', child: Text('Buyer')),
-                  DropdownMenuItem(value: 'seller', child: Text('Seller')),
-                  DropdownMenuItem(value: 'both', child: Text('Both')),
-                ],
-                onChanged: (value) {
-                  if (value != null) {
-                    setState(() { _businessType = value; });
-                  }
-                },
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _bioController,
+                decoration: const InputDecoration(labelText: 'Bio'),
+                maxLines: 4,
               ),
               const SizedBox(height: 32),
               _isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : ElevatedButton(
                       onPressed: _saveProfile,
-                      child: const Text('Save Profile'),
+                      child: const Text('Save Changes'),
                     ),
             ],
           ),
