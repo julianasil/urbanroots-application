@@ -1,9 +1,11 @@
-// frontend/lib/screens/market_screen.dart
+// frontend/lib/screens/product/market_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../models/product.dart';
+import '../../providers/cart_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/user_provider.dart';
-import '../../widgets/product_tile.dart';
+import '../../widgets/product_card.dart';
 import 'product_detail_screen.dart';
 import 'edit_product_screen.dart';
 
@@ -15,129 +17,180 @@ class MarketScreen extends StatefulWidget {
 }
 
 class _MarketScreenState extends State<MarketScreen> {
-  late Future<void> _productsFuture;
-
   @override
   void initState() {
     super.initState();
-    _productsFuture = _loadProducts();
+    // Use addPostFrameCallback to ensure the Provider is available when called.
+    // This fetches products on the first load if the list is currently empty.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final productProvider = Provider.of<ProductProvider>(context, listen: false);
+      if (productProvider.items.isEmpty) {
+        productProvider.loadProducts();
+      }
+    });
   }
 
-  Future<void> _loadProducts() {
-    return Provider.of<ProductProvider>(context, listen: false).loadProducts();
-  }
-
-  Future<void> _refreshData() async {
-    // Refreshing the product list is all that's needed here.
-    await _loadProducts();
+  Future<void> _refreshData(BuildContext context) async {
+    // This method is called by the RefreshIndicator.
+    await Provider.of<ProductProvider>(context, listen: false).loadProducts();
   }
 
   @override
   Widget build(BuildContext context) {
-    // MODIFIED: We only need to consume the providers directly in the builder now.
     return Scaffold(
       appBar: AppBar(
         title: const Text('UrbanRoots Marketplace'),
       ),
-      // MODIFIED: The FAB is now built within a Consumer to react to state changes.
-      floatingActionButton: Consumer<UserProvider>(
-        builder: (context, userProvider, child) {
-          final activeProfile = userProvider.activeBusinessProfile;
-          // Show the "Add Product" button only if there's an active profile
-          // and its type is 'seller' or 'both'.
-          final canSell = activeProfile != null &&
-              (activeProfile.businessType == 'seller' || activeProfile.businessType == 'both');
-
-          if (!canSell) {
-            return const SizedBox.shrink(); // Return an empty widget if user can't sell
-          }
-
-          return FloatingActionButton(
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (ctx) => const EditProductScreen()),
-              );
-            },
-            child: const Icon(Icons.add),
-            tooltip: 'Add a new product',
-          );
-        },
-      ),
+      floatingActionButton: _buildFab(context),
       body: RefreshIndicator(
-        onRefresh: _refreshData,
-        child: FutureBuilder(
-          future: _productsFuture,
-          builder: (ctx, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
+        onRefresh: () => _refreshData(context),
+        child: Consumer<ProductProvider>(
+          builder: (ctx, productProvider, child) {
+            // --- ALIGNED WITH PROVIDER ---
+            // On initial load (items are empty), show the skeleton loader.
+            if (productProvider.isLoading && productProvider.items.isEmpty) {
+              return _buildLoadingSkeleton();
             }
-            if (snapshot.hasError) {
-              return Center(child: Text('An error occurred: ${snapshot.error}'));
+
+            // --- ALIGNED WITH PROVIDER ---
+            // If an error string exists, show the error state.
+            if (productProvider.error != null) {
+              return _buildErrorState(productProvider.error!);
             }
-            
-            return Consumer2<ProductProvider, UserProvider>(
-              builder: (ctx, productProvider, userProvider, child) {
-                if (productProvider.items.isEmpty) {
-                  return const Center(child: Text('No products found.'));
-                }
 
-                // MODIFIED: Get the single active profile ID.
-                final activeProfileId = userProvider.activeBusinessProfile?.profileId;
+            // If the list is empty and there's no error, show the empty state.
+            if (productProvider.items.isEmpty) {
+              return _buildEmptyState();
+            }
 
-                return ListView.builder(
-                  itemCount: productProvider.items.length,
-                  itemBuilder: (ctx, i) {
-                    final product = productProvider.items[i];
-
-                    // MODIFIED: The ownership check is now a simple string comparison.
-                    // "Can the user manage this product if its seller ID matches their active profile ID?"
-                    final bool canManage = product.sellerProfileId == activeProfileId;
+            // If we have data, show the GridView.
+            return GridView.builder(
+              padding: const EdgeInsets.all(16.0),
+              itemCount: productProvider.items.length,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                childAspectRatio: 0.75,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+              ),
+              itemBuilder: (ctx, i) {
+                final product = productProvider.items[i];
+                
+                return ProductCard(
+                  product: product,
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (ctx) => ProductDetailScreen(product: product),
+                      ),
+                    );
+                  },
+                  onAddToCart: () {
+                    final cart = Provider.of<CartProvider>(context, listen: false);
+                    cart.addItem(product.productId, product.price, product.name);
                     
-                    return ProductTile(
-                      product: product,
-                      canManage: canManage,
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (ctx) => ProductDetailScreen(product: product),
-                          ),
-                        );
-                      },
-                      onEdit: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (ctx) => EditProductScreen(product: product),
-                          ),
-                        );
-                      },
-                      onDelete: () {
-                        showDialog(
-                          context: context,
-                          builder: (ctx) => AlertDialog(
-                            title: const Text('Are you sure?'),
-                            content: Text('Do you want to delete "${product.name}"?'),
-                            actions: [
-                              TextButton(
-                                child: const Text('No'),
-                                onPressed: () => Navigator.of(ctx).pop(),
-                              ),
-                              TextButton(
-                                child: const Text('Yes'),
-                                onPressed: () {
-                                  productProvider.deleteProduct(product.productId);
-                                  Navigator.of(ctx).pop();
-                                },
-                              ),
-                            ],
-                          ),
-                        );
-                      },
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('${product.name} added to cart!'),
+                        duration: const Duration(seconds: 2),
+                        action: SnackBarAction(
+                          label: 'UNDO',
+                          onPressed: () {
+                            cart.removeSingleItem(product.productId);
+                          },
+                        ),
+                      ),
                     );
                   },
                 );
               },
             );
           },
+        ),
+      ),
+    );
+  }
+
+  // --- HELPER WIDGETS (No changes needed here) ---
+
+  Widget _buildFab(BuildContext context) {
+    return Consumer<UserProvider>(
+      builder: (context, userProvider, child) {
+        final activeProfile = userProvider.activeBusinessProfile;
+        final canSell = activeProfile != null &&
+            (activeProfile.businessType == 'seller' || activeProfile.businessType == 'both');
+
+        if (!canSell) {
+          return const SizedBox.shrink();
+        }
+
+        return FloatingActionButton(
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (ctx) => const EditProductScreen()),
+            );
+          },
+          tooltip: 'Add a new product',
+          child: const Icon(Icons.add),
+        );
+      },
+    );
+  }
+
+  Widget _buildLoadingSkeleton() {
+    return GridView.builder(
+      physics: const NeverScrollableScrollPhysics(), // Disable scrolling for skeleton
+      padding: const EdgeInsets.all(16.0),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        childAspectRatio: 0.75,
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
+      ),
+      itemCount: 6,
+      itemBuilder: (context, index) => Card(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        color: Colors.grey[200],
+      ),
+    );
+  }
+  
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.storefront, size: 60, color: Colors.grey[400]),
+          const SizedBox(height: 16),
+          const Text(
+            'No products in the market yet.',
+            style: TextStyle(fontSize: 18, color: Colors.grey),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildErrorState(String error) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, size: 60, color: Colors.red[300]),
+            const SizedBox(height: 16),
+            const Text(
+              'Something went wrong!',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              "Could not load products. Please pull to refresh.",
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+          ],
         ),
       ),
     );

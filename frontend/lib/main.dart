@@ -1,16 +1,16 @@
 // lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-// THIS IS THE MISSING LINE:
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:urbanroots_application/services/user_service.dart';
 import 'services/product_service.dart';
-import 'package:supabase_flutter/supabase_flutter.dart'; 
 import 'providers/order_provider.dart';
 import 'providers/user_provider.dart';
 import 'providers/product_provider.dart';
 import 'providers/cart_provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/root_navigator.dart';
+import 'theme.dart'; // <-- IMPORT YOUR NEW THEME FILE
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -54,22 +54,11 @@ class MyApp extends StatelessWidget {
       builder: (ctx, userProvider, _) {
         return MaterialApp(
           title: 'UrbanRoots E-Commerce',
-          theme: ThemeData(
-            useMaterial3: true,
-            colorScheme: ColorScheme.fromSeed(
-              seedColor: const Color(0xFF4CAF50),
-              primary: const Color(0xFF4CAF50),
-              secondary: const Color(0xFFFFEB3B),
-              background: Colors.white,
-              surface: Colors.white,
-            ),
-            appBarTheme: const AppBarTheme(
-              backgroundColor: Color(0xFF4CAF50),
-              foregroundColor: Colors.white,
-              elevation: 2,
-              centerTitle: true,
-            ),
-          ),
+          debugShowCheckedModeBanner: false, // Recommended to hide the debug banner
+          
+          // --- THEME IS NOW APPLIED WITH ONE CLEAN LINE ---
+          theme: urbanRootsTheme, 
+          
           home: userProvider.isAuthenticated
               ? const RootNavigator()
               : const LoginScreen(),
