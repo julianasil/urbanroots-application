@@ -5,7 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/product.dart';
-import '../../models/user_profile.dart';
+//import '../../models/user_profile.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/user_provider.dart';
 
@@ -96,7 +96,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
     try {
       final productData = Product(
         productId: widget.product?.productId ?? '',
-        sellerProfileId: activeProfile.profileId, // CRITICAL: Use the ACTIVE profile's ID
+        sellerProfile: activeProfile, // CRITICAL: Use the ACTIVE profile's ID
         name: _nameController.text,
         description: _descriptionController.text,
         price: double.parse(_priceController.text),

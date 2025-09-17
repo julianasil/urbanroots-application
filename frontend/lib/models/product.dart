@@ -1,16 +1,9 @@
-// lib/models/product.dart
-import 'package:urbanroots_application/models/user_profile.dart';
+// frontend/lib/models/product.dart
+import 'user_profile.dart'; // For BusinessProfile
+
 class Product {
   final String productId;
-  
-  // MODIFIED: This field is now for SENDING data. It holds the UUID of the seller.
-  // When creating a new Product object in the app, you MUST provide this.
-  final String sellerProfileId;
-
-  // MODIFIED: This is for DISPLAYING data. It's the nested object from the API.
-  // Renamed from `sellerProfile` to `sellerProfileDetails` for clarity.
-  final BusinessProfile? sellerProfileDetails;
-
+  final BusinessProfile? sellerProfile; // This holds the nested seller details
   final String name;
   final String description;
   final double price;
@@ -23,8 +16,7 @@ class Product {
 
   Product({
     required this.productId,
-    required this.sellerProfileId, // MODIFIED: Made this required.
-    this.sellerProfileDetails,      // MODIFIED: Renamed for clarity.
+    this.sellerProfile,
     required this.name,
     this.description = '',
     required this.price,
@@ -37,31 +29,32 @@ class Product {
   });
 
   factory Product.fromJson(Map<String, dynamic> json) {
-    // The nested details will come from the 'seller_profile_details' key we defined in the Django serializer
-    final detailsData = json['seller_profile_details'];
-
     return Product(
-      productId: json['product_id'] as String,
-      
-      // We get the seller's ID from within the nested details object.
-      sellerProfileId: detailsData != null ? detailsData['profile_id'] as String : '',
-
-      sellerProfileDetails: detailsData != null
-          ? BusinessProfile.fromJson(detailsData)
+      productId: json['product_id'],
+      sellerProfile: json['seller_profile'] != null
+          ? BusinessProfile.fromJson(json['seller_profile'])
           : null,
-      
       name: json['name'] ?? '',
       description: json['description'] ?? '',
-      price: (json['price'] is String) ? double.parse(json['price']) : (json['price']?.toDouble() ?? 0.0),
+      price: double.parse(json['price'].toString()),
       unit: json['unit'] ?? '',
-      stockQuantity: (json['stock_quantity'] ?? 0) as int,
-      image: json['image']?.toString(),
+      stockQuantity: json['stock_quantity'] ?? 0,
+      image: json['image'],
       isActive: json['is_active'] ?? true,
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : null,
       updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at']) : null,
     );
   }
 
-  // REMOVED: The toCreateJson and toUpdateJson methods are no longer needed,
-  // as the ProductService now builds the request manually using the object's properties.
+  // Used by the service to build the multipart request for updates
+  Map<String, dynamic> toUpdateJson() {
+    return {
+      'name': name,
+      'description': description,
+      'price': price.toString(),
+      'unit': unit,
+      'stock_quantity': stockQuantity.toString(),
+      'is_active': isActive.toString(),
+    };
+  }
 }

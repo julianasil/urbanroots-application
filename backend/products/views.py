@@ -1,7 +1,8 @@
 # backend/products/views.py
-from rest_framework import viewsets, permissions, filters, serializers
+from rest_framework import viewsets, permissions, filters, serializers, status
 from rest_framework.parsers import MultiPartParser, FormParser
 from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.response import Response
 from .models import Product
 from .serializers import ProductSerializer
 
@@ -45,28 +46,37 @@ class ProductViewSet(viewsets.ModelViewSet):
     search_fields = ['name', 'description']
     ordering_fields = ['price', 'created_at']
 
+    def create(self, request, *args, **kwargs):
+        # Create a mutable copy of the request data
+        data = request.data.copy()
+        
+        # Add the image from request.FILES to the data dictionary
+        # This is what the serializer is expecting.
+        if 'image' in request.FILES:
+            data['image'] = request.FILES['image']
+
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
     # REMOVED: The temporary 'create' method with debugging has been removed.
     # The default ModelViewSet create behavior is now used, which is cleaner.
 
     # MODIFIED: The perform_create logic is now for validation.
     def perform_create(self, serializer):
         """
-        Validates that the user is a member of the business profile they are
-        trying to assign this product to.
+        Overrides the default create behavior to automatically assign the
+        logged-in user's business profile as the seller.
         """
-        # The serializer's validated_data will contain the business profile instance
-        # that the frontend sent the ID for.
-        seller_profile_to_assign = serializer.validated_data['seller_profile']
-        
-        # Get all the business profiles the current user is a member of.
-        user_businesses = self.request.user.business_profiles.all()
+        # 1. Get the business profile directly from the authenticated user.
+        seller_profile = self.request.user.business_profiles.first() # Use .first() assuming one for now
 
-        # Check if the profile they're trying to assign is in their list of memberships.
-        if seller_profile_to_assign not in user_businesses:
-            raise serializers.ValidationError(
-                "You are not a member of this business profile and cannot add products to it."
-            )
+        # 2. Add a crucial safety check.
+        if seller_profile is None:
+            raise serializers.ValidationError("You must have a business profile to create a product.")
         
-        # If the check passes, save the serializer as normal.
-        # The serializer will automatically handle linking the validated seller_profile.
-        serializer.save()
+        # 3. Pass this profile object directly to the serializer's save method.
+        # DRF is smart enough to know that this object should fill the 'seller_profile' field.
+        serializer.save(seller_profile=seller_profile)

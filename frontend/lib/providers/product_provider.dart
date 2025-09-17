@@ -1,5 +1,6 @@
 // lib/providers/product_provider.dart
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import '../models/product.dart';
 import '../services/product_service.dart';
@@ -18,7 +19,7 @@ class ProductProvider extends ChangeNotifier {
   Future<void> loadProducts({Map<String, String>? filters}) async {
     isLoading = true;
     try {
-      notifyListeners(); // MODIFIED: Uncommented for better UI feedback on loading start.
+      //notifyListeners(); // MODIFIED: Uncommented for better UI feedback on loading start.
       final products = await service.fetchProducts(queryParameters: filters);
       _items = products;
       error = null;

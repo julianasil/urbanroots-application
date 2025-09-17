@@ -7,15 +7,7 @@ from users.serializers import BusinessProfileSerializer # Import the BusinessPro
 class ProductSerializer(serializers.ModelSerializer):
     # This field will be used for GET requests to show the nested details of the seller.
     # It's read-only. We are renaming it for clarity.
-    seller_profile_details = BusinessProfileSerializer(source='seller_profile', read_only=True)
-
-    # This field will be used for POST/PUT requests (write operations).
-    # It tells DRF to expect a UUID (the primary key) for the seller_profile.
-    # Your Flutter app will send the profile_id here when creating a product.
-    seller_profile = serializers.PrimaryKeyRelatedField(
-        queryset=BusinessProfile.objects.all(),
-        write_only=True
-    )
+    seller_profile = BusinessProfileSerializer(read_only=True)
 
     image = serializers.ImageField(max_length=None, use_url=True, required=False, allow_null=True)
 
@@ -24,7 +16,6 @@ class ProductSerializer(serializers.ModelSerializer):
         fields = [
             'product_id', 
             'seller_profile',           # The write-only ID field for creating/updating
-            'seller_profile_details',   # The read-only nested object field for reading
             'name', 
             'description', 
             'price', 

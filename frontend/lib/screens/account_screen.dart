@@ -4,8 +4,9 @@ import 'package:provider/provider.dart';
 import '../models/user_profile.dart';
 import '../providers/user_provider.dart';
 import 'business_selection_screen.dart';
-import 'edit_profile_screen.dart'; // --- ADDED: Import the edit screen ---
+import 'edit_profile_screen.dart'; 
 import 'login_screen.dart';
+import 'seller_dashboard_screen.dart';
 
 class AccountScreen extends StatefulWidget {
   const AccountScreen({super.key});
@@ -17,7 +18,6 @@ class AccountScreen extends StatefulWidget {
 class _AccountScreenState extends State<AccountScreen> {
   @override
   Widget build(BuildContext context) {
-    // --- KEY CHANGE: Using a Consumer for cleaner state access ---
     return Consumer<UserProvider>(
       builder: (context, userProvider, child) {
         // --- KEY CHANGE: Getting the detailed user profile from our Django backend ---
@@ -29,7 +29,6 @@ class _AccountScreenState extends State<AccountScreen> {
           return const Scaffold(body: Center(child: CircularProgressIndicator()));
         }
 
-        // The main UI builds once we have the user profile.
         return Scaffold(
           backgroundColor: Colors.grey[100],
           appBar: AppBar(
@@ -41,9 +40,11 @@ class _AccountScreenState extends State<AccountScreen> {
             children: [
               _buildUserHeader(userProfile),
               const SizedBox(height: 24),
-              // Pass context to the card to handle navigation
               _buildPersonalInfoCard(context, userProfile),
               const SizedBox(height: 24),
+
+              _buildSellerCard(context, activeBusinessProfile),
+
               _buildActiveBusinessCard(context, activeBusinessProfile),
               const SizedBox(height: 32),
               _buildLogoutButton(context),
@@ -105,6 +106,53 @@ class _AccountScreenState extends State<AccountScreen> {
           ],
         ),
       ),
+    );
+  }
+
+   Widget _buildSellerCard(BuildContext context, BusinessProfile? activeProfile) {
+    // Determine if the user is a seller
+    final bool isSeller = activeProfile?.businessType == 'seller' || activeProfile?.businessType == 'both';
+
+    // If they are not a seller, return an empty container.
+    if (!isSeller) {
+      return const SizedBox.shrink(); // This widget takes up no space.
+    }
+
+    // If they are a seller, return the styled card and button.
+    return Column(
+      children: [
+        Card(
+          elevation: 1,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          color: Theme.of(context).primaryColor, // Use primary color for emphasis
+          child: InkWell(
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (ctx) => const SellerDashboardScreen()),
+              );
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: const [
+                  Icon(Icons.storefront, color: Colors.white),
+                  SizedBox(width: 12),
+                  Text(
+                    'Go to Seller Dashboard',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 24), // Add spacing after the card
+      ],
     );
   }
 

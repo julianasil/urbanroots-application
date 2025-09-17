@@ -8,6 +8,8 @@ import '../../providers/user_provider.dart';
 import '../../widgets/product_card.dart';
 import 'product_detail_screen.dart';
 import 'edit_product_screen.dart';
+import '../../providers/cart_provider.dart'; 
+import '../cart_screen.dart'; 
 
 class MarketScreen extends StatefulWidget {
   const MarketScreen({super.key});
@@ -40,6 +42,32 @@ class _MarketScreenState extends State<MarketScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('UrbanRoots Marketplace'),
+        actions: <Widget>[
+          // Use a Consumer to get the latest cart data
+          Consumer<CartProvider>(
+            builder: (_, cart, ch) => Badge(
+              // Display the number of unique items in the cart
+              label: Text(cart.itemCount.toString()),
+              // Only show the badge if the cart is not empty
+              isLabelVisible: cart.itemCount > 0,
+              // The child of the Consumer, which doesn't rebuild
+              child: ch,
+            ),
+            // This is the IconButton itself, which doesn't need to rebuild
+            // when the cart item count changes.
+            child: IconButton(
+              icon: const Icon(Icons.shopping_cart_outlined),
+              onPressed: () {
+                // Navigate to the CartScreen when the icon is tapped
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (ctx) => const CartScreen()),
+                );
+              },
+              tooltip: 'Your Cart',
+            ),
+          ),
+          const SizedBox(width: 10), // Add a little padding
+        ],
       ),
       floatingActionButton: _buildFab(context),
       body: RefreshIndicator(

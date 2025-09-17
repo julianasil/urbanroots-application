@@ -13,7 +13,6 @@ class UserProvider with ChangeNotifier {
 
   // --- NEW: State for the user's detailed profile ---
   UserProfile? _user;
-  
   List<BusinessProfile> _myBusinessProfiles = [];
   bool _isLoadingProfiles = false;
   String? _profileError;

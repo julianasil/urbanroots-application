@@ -43,7 +43,7 @@ class ProductService {
     final uri = Uri.parse('$_baseUrl/');
     var request = http.MultipartRequest('POST', uri)..headers.addAll(headers);
 
-    request.fields['seller_profile'] = product.sellerProfileId;
+    //request.fields['seller_profile'] = product.sellerProfileId;
     request.fields['name'] = product.name;
     request.fields['description'] = product.description;
     request.fields['price'] = product.price.toString();

@@ -22,6 +22,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 INSTALLED_APPS = [
     'users.apps.UsersConfig',
     'products.apps.ProductsConfig',
+    'orders.apps.OrdersConfig',
     #'inventory.apps.InventoryConfig',
 
     # Django Built-in Apps
@@ -123,3 +124,7 @@ CORS_ORIGIN_ALLOW_ALL = True
 CORS_ALLOW_HEADERS = list(default_headers) + [
     "authorization",
 ]
+
+MEDIA_ROOT = BASE_DIR / 'media'
+
+MEDIA_URL = '/media/'

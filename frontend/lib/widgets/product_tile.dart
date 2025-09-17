@@ -34,7 +34,7 @@ class ProductTile extends StatelessWidget {
     }
 
     // MODIFIED: Changed product.sellerProfile to product.sellerProfileDetails
-    final String sellerName = product.sellerProfileDetails?.companyName ?? 'Unknown Seller';
+    final String sellerName = product.sellerProfile?.companyName ?? 'Unknown Seller';
 
      return Card(
       margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),

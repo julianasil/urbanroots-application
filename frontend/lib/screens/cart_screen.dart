@@ -1,16 +1,85 @@
 // lib/screens/cart_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-
+import '../services/api_service.dart';
 import '../models/product.dart';
 import '../providers/cart_provider.dart';
-import '../providers/order_provider.dart';
+//import '../providers/order_provider.dart';
 import '../providers/product_provider.dart';
 import '../screens/orders_screen.dart';
 import '../widgets/product_image.dart';
+import '../providers/order_provider.dart';
 
 class CartScreen extends StatelessWidget {
   const CartScreen({Key? key}) : super(key: key);
+
+  // --- NEW METHOD to handle the checkout logic ---
+  Future<void> _checkout(BuildContext context, CartProvider cart) async {
+
+    final navigator = Navigator.of(context);
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+    // 1. Show a loading indicator.
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      // 2. Format cart items for the API.
+      final cartItemsForApi = cart.items.entries.map((entry) => {
+        'product_id': entry.key,
+        'quantity': entry.value.quantity,
+      }).toList();
+
+      // 3. Define the shipping address.
+      const shippingAddress = '123 Flutter Lane, Dev City, 8000';
+
+      // 4. Call the ApiService.
+      await ApiService().createOrder(cartItemsForApi, shippingAddress);
+
+      // 5. If successful, clear the local cart.
+      cart.clear();
+
+      // --- FIX: Use rootNavigator to ensure the dialog is popped ---
+      navigator.pop();
+
+      // Show a success message.
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Order placed successfully!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      // Navigate to the order history screen.
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const OrdersScreen()),
+      );
+
+      await Provider.of<OrderProvider>(context, listen: false).fetchAndSetOrders();
+
+    } catch (e) {
+      // Close the loading dialog.
+      navigator.pop();
+
+      // Show an error message if anything goes wrong.
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Checkout Failed'),
+          content: Text(e.toString()),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -56,18 +125,7 @@ class CartScreen extends StatelessWidget {
                     ),
                     const Spacer(),
                     ElevatedButton.icon(
-                      onPressed: cart.items.isEmpty
-                          ? null
-                          : () {
-                              Provider.of<OrderProvider>(context, listen: false)
-                                  .addOrder(cartItemsList, cart.totalAmount);
-                              cart.clear();
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => const OrdersScreen(),
-                                ),
-                              );
-                            },
+                      onPressed: cart.items.isEmpty ? null : () => _checkout(context, cart),
                       icon: const Icon(Icons.payment),
                       label: const Text('CHECKOUT'),
                       style: ElevatedButton.styleFrom(
