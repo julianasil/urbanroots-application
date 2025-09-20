@@ -2,6 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:urbanroots_application/providers/report_provider.dart';
+import 'package:urbanroots_application/services/reports_service.dart';
 import 'package:urbanroots_application/services/user_service.dart';
 import 'services/product_service.dart';
 import 'providers/order_provider.dart';
@@ -37,6 +39,9 @@ Future<void> main() async {
           create: (_) => CartProvider(userId: 'temp_user_id'),
         ),
         ChangeNotifierProvider(create: (_) => OrderProvider()),
+        ChangeNotifierProvider(
+          create: (_) => ReportProvider(reportsService: ReportsService()),
+        ),
       ],
       child: const MyApp(),
     ),

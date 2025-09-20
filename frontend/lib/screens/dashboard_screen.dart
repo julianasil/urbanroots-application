@@ -1,13 +1,15 @@
 // frontend/lib/screens/dashboard_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:urbanroots_application/providers/report_provider.dart';
 import '../providers/product_provider.dart';
 import '../providers/order_provider.dart';
 import '../providers/cart_provider.dart';
 import '../providers/user_provider.dart';
 import '../screens/product/edit_product_screen.dart';
 import 'orders_screen.dart';
-import '../widgets/order_card.dart';  // Import the new, styled order card
+import '../widgets/order_card.dart';
+import 'seller_reports_screen.dart'; // <-- IMPORT THE REPORTS SCREEN
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -17,36 +19,44 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  //late Future<void> _dataLoadingFuture;
-
+  @override
   void initState() {
     super.initState();
-    // Use a post-frame callback to ensure the context is ready before fetching.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Call the provider methods to fetch initial data.
-      // We don't need to await them here. The UI will update via the Consumer.
-      Provider.of<OrderProvider>(context, listen: false).fetchAndSetOrders();
-      Provider.of<ProductProvider>(context, listen: false).loadProducts();
+      _refreshData(context);
     });
   }
   
-  // A single method to fetch all necessary data for the dashboard
   Future<void> _refreshData(BuildContext context) async {
-    // We can call both fetches in parallel for a faster refresh.
-    await Future.wait([
+    // Also fetch report data on refresh for sellers
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final isSeller = userProvider.activeBusinessProfile != null &&
+        (userProvider.activeBusinessProfile!.businessType == 'seller' || userProvider.activeBusinessProfile!.businessType == 'both');
+
+    List<Future<void>> futures = [
       Provider.of<OrderProvider>(context, listen: false).fetchAndSetOrders(),
       Provider.of<ProductProvider>(context, listen: false).loadProducts(),
-    ]);
+    ];
+
+    if (isSeller) {
+      futures.add(Provider.of<ReportProvider>(context, listen: false).getSellerReport());
+    }
+    
+    await Future.wait(futures);
   }
 
   @override
   Widget build(BuildContext context) {
-    // Use Consumer widgets to get the latest data from providers and rebuild the UI
-    final userProv = Provider.of<UserProvider>(context, listen: false);
+    // We listen to the UserProvider to reactively build the UI based on role.
+    final userProv = Provider.of<UserProvider>(context);
     final cartProv = Provider.of<CartProvider>(context);
     
-    // Get fullName from the UserProfile object for better consistency
     final fullName = userProv.user?.fullName ?? 'Guest';
+    
+    // --- KEY LOGIC: Determine if the user is a seller ---
+    final activeProfile = userProv.activeBusinessProfile;
+    final bool isSeller = activeProfile != null &&
+        (activeProfile.businessType == 'seller' || activeProfile.businessType == 'both');
 
     return Scaffold(
       appBar: AppBar(
@@ -55,15 +65,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
       body: SafeArea(
         child: RefreshIndicator(
-          onRefresh: () => _refreshData(context), // Pull-to-refresh calls the same load method
+          onRefresh: () => _refreshData(context),
           child: SingleChildScrollView(
-            // Always allow scrolling to prevent overflow on small devices
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // --- Top Greeting Section ---
+                // --- Top Greeting Section (Unchanged) ---
                 Row(
                   children: [
                     CircleAvatar(
@@ -95,8 +104,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 const SizedBox(height: 24),
 
-                // --- Stats Grid Section ---
-                // Use Consumers to ensure these stats update when data changes
+                // --- NEW: Conditional Analytics Button ---
+                // This block is the only new UI element. It only appears for sellers.
+                if (isSeller) ...[
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.analytics_outlined),
+                    label: const Text('View Business Analytics'),
+                    onPressed: () {
+                      // Make sure the report data is fetched before navigating
+                      Provider.of<ReportProvider>(context, listen: false).getSellerReport();
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const SellerReportsScreen()),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 50), // Full-width
+                      textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+
+                // --- Stats Grid Section (Unchanged) ---
                 Consumer2<ProductProvider, OrderProvider>(
                   builder: (context, productData, orderData, child) {
                     final totalSales = orderData.orders.fold<double>(0.0, (prev, order) => prev + order.totalAmount);
@@ -118,7 +147,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 const SizedBox(height: 24),
 
-                // --- Action Buttons Section ---
+                // --- Action Buttons Section (Unchanged) ---
                 Row(
                   children: [
                     Expanded(
@@ -144,30 +173,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 const SizedBox(height: 24),
 
-                // --- Recent Orders Section ---
+                // --- Recent Orders Section (Unchanged) ---
                 Text(
                   'Recent Orders',
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 16),
                 
-                // Use a Consumer for the order list to handle loading and empty states
                 Consumer<OrderProvider>(
                   builder: (context, orderData, child) {
-                    // 1. Check if the provider is currently loading data
                     if (orderData.isLoading) {
                       return const Center(child: CircularProgressIndicator());
                     }
-                    // 2. Check if there was an error during the fetch
                     if (orderData.error != null) {
                       return Center(child: Text('An error occurred: ${orderData.error}'));
                     }
-                    // 3. Check if the orders list is empty
                     if (orderData.orders.isEmpty) {
                       return const Center(child: Padding(padding: EdgeInsets.all(20.0), child: Text('No recent orders found.')));
                     }
                     
-                    // 4. If we have data, display it
                     final recentOrders = orderData.orders.take(3).toList();
                     return ListView.builder(
                       shrinkWrap: true,
@@ -187,9 +211,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 }
 
 
-// --- WIDGETS ---
-// It's best practice to keep these in their own files in a 'widgets' directory.
-
+// --- WIDGETS (Unchanged) ---
 class _StatCard extends StatelessWidget {
   final String title;
   final String value;
