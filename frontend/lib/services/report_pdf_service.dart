@@ -1,5 +1,7 @@
 // lib/services/report_pdf_service.dart
-import 'dart:typed_data';
+//import 'dart:typed_data';
+import 'dart:ui' as ui;
+import 'package:flutter/services.dart'; // --- NEW: Required to load font assets from your project ---
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -8,29 +10,41 @@ import '../models/user_profile.dart'; // For the business name
 
 class ReportPdfService {
   
-  // --- MODIFIED: The method now accepts an optional 'chartImage' parameter ---
   Future<Uint8List> generateReportPdf(
     SellerReport report, 
     BusinessProfile businessProfile, {
-    Uint8List? chartImage, // This is the captured image data from the UI.
+    Uint8List? chartImage,
   }) async {
-    // Create a new PDF document.
     final pdf = pw.Document();
+
+    // --- NEW: Load the custom font from your local project assets ---
+    // This loads the font files you added to the assets/fonts/ folder.
+    // rootBundle is used to access files included in your app bundle.
+    final fontData = await rootBundle.load("assets/fonts/Roboto-Regular.ttf");
+    final boldFontData = await rootBundle.load("assets/fonts/Roboto-Bold.ttf");
+    final ttf = pw.Font.ttf(fontData);
+    final boldTtf = pw.Font.ttf(boldFontData);
+
+    // --- NEW: Create a PDF theme that uses these local fonts ---
+    // By setting this theme, all text in the document will default to Roboto,
+    // which has full Unicode support.
+    final myTheme = pw.ThemeData.withFont(
+      base: ttf,
+      bold: boldTtf,
+    );
 
     // Add a page to the document.
     pdf.addPage(
       pw.MultiPage(
+        // --- MODIFIED: Apply the new theme to the entire page ---
+        theme: myTheme,
         pageFormat: PdfPageFormat.a4,
-        // The build method returns a list of widgets to draw on the page.
         build: (context) => [
           _buildHeader(context, businessProfile),
           pw.SizedBox(height: 20),
           _buildSummary(context, report.summary),
           pw.SizedBox(height: 30),
 
-          // --- NEW: Conditionally add the chart image section ---
-          // This 'if' statement checks if the chart image was successfully captured
-          // and passed to this method.
           if (chartImage != null) ...[
             _buildChartSection(context, chartImage),
             pw.SizedBox(height: 30),
@@ -41,11 +55,13 @@ class ReportPdfService {
       ),
     );
 
-    // The save() method returns the PDF document as a Uint8List of bytes.
     return pdf.save();
   }
 
-  // Helper method to build the PDF header.
+  // --- (No changes are needed for any of the _build... methods below) ---
+  // The theme we applied to the page will automatically handle applying
+  // the correct font (regular or bold) to all text widgets, fixing the '₱' issue.
+
   pw.Widget _buildHeader(pw.Context context, BusinessProfile businessProfile) {
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -64,7 +80,6 @@ class ReportPdfService {
     );
   }
   
-  // Helper method to build the summary KPI section.
   pw.Widget _buildSummary(pw.Context context, ReportSummary summary) {
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -86,7 +101,6 @@ class ReportPdfService {
     );
   }
 
-  // Reusable widget for the KPI cards in the summary.
   pw.Widget _buildKpiCard(String title, String value) {
     return pw.Container(
       padding: const pw.EdgeInsets.all(12),
@@ -104,9 +118,7 @@ class ReportPdfService {
     );
   }
 
-  // --- NEW: A helper widget to build the chart section in the PDF ---
   pw.Widget _buildChartSection(pw.Context context, Uint8List chartImage) {
-    // The pdf library uses its own ImageProvider type, so we wrap our bytes in a MemoryImage.
     final image = pw.MemoryImage(chartImage);
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -116,8 +128,6 @@ class ReportPdfService {
           style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 18),
         ),
         pw.SizedBox(height: 16),
-        // We put the image inside a decorated container to give it a border,
-        // matching the style of the KPI cards.
         pw.Container(
           padding: const pw.EdgeInsets.all(12),
           decoration: pw.BoxDecoration(
@@ -130,7 +140,6 @@ class ReportPdfService {
     );
   }
 
-  // Helper method to build the table of top-selling products.
   pw.Widget _buildTopProductsTable(pw.Context context, List<TopSellingProduct> topProducts) {
     const headers = ['Product Name', 'Total Quantity Sold'];
     final data = topProducts.map((product) => [

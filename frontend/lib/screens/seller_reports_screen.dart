@@ -1,9 +1,9 @@
 // lib/screens/seller_reports_screen.dart
 import 'dart:typed_data';
-import 'dart:ui' as ui; // Required for image conversion from a widget
+import 'dart:ui' as ui;
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart'; // Required for RenderRepaintBoundary
+import 'package:flutter/rendering.dart';
 import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
@@ -22,8 +22,6 @@ class SellerReportsScreen extends StatefulWidget {
 }
 
 class _SellerReportsScreenState extends State<SellerReportsScreen> {
-  // --- NEW: Create a GlobalKey to identify the chart widget ---
-  // This key allows us to find and capture the chart in the widget tree.
   final GlobalKey _chartKey = GlobalKey();
 
   @override
@@ -34,12 +32,10 @@ class _SellerReportsScreenState extends State<SellerReportsScreen> {
     });
   }
 
-  // --- MODIFIED: The PDF export method now captures the chart image ---
   Future<void> _exportToPdf() async {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Generating PDF...')),
     );
-
     final reportProvider = Provider.of<ReportProvider>(context, listen: false);
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final report = reportProvider.report;
@@ -54,27 +50,21 @@ class _SellerReportsScreenState extends State<SellerReportsScreen> {
     }
 
     try {
-      // --- NEW: Logic to capture the chart as an image ---
       Uint8List? chartImageBytes;
       try {
-        // Find the render object associated with our global key.
         RenderRepaintBoundary boundary = _chartKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
-        // The pixelRatio makes the captured image higher resolution for better quality.
         ui.Image image = await boundary.toImage(pixelRatio: 3.0);
         ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
         chartImageBytes = byteData?.buffer.asUint8List();
       } catch (e) {
         print("Could not capture chart image: $e");
-        // We don't block PDF generation if image capture fails; the PDF will just lack a chart.
       }
 
       final pdfService = ReportPdfService();
-      
-      // --- MODIFIED: Pass the captured image bytes to the service ---
       final Uint8List pdfBytes = await pdfService.generateReportPdf(
         report, 
         businessProfile,
-        chartImage: chartImageBytes, // Pass the new image data to the service.
+        chartImage: chartImageBytes,
       );
 
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
@@ -136,15 +126,9 @@ class _SellerReportsScreenState extends State<SellerReportsScreen> {
                 _SummarySection(summary: report.summary),
                 const SizedBox(height: 24),
                 
-                // --- MODIFIED: Wrap the chart section in the RepaintBoundary ---
-                RepaintBoundary(
-                  key: _chartKey, // Assign the key here so we can find it later.
-                  child: _DailySalesSection(
-                    dailySales: reportProvider.dailySales,
-                    isLoading: reportProvider.isChartLoading,
-                    error: reportProvider.chartError,
-                  ),
-                ),
+                // --- MODIFIED: The title is now outside the RepaintBoundary ---
+                // We use a helper widget to keep the build method clean.
+                _buildChartAndTitle(context, reportProvider),
                 
                 const SizedBox(height: 24),
                 _TopProductsSection(topProducts: report.topProducts),
@@ -155,11 +139,34 @@ class _SellerReportsScreenState extends State<SellerReportsScreen> {
       ),
     );
   }
+
+  // --- NEW: Helper widget to structure the title and the chart together ---
+  // This improves code organization and allows us to move the RepaintBoundary.
+  Widget _buildChartAndTitle(BuildContext context, ReportProvider reportProvider) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // The title is now here, so it won't be captured in the PDF image.
+        Text(
+          'Revenue (Last 30 Days)',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 16),
+        // The RepaintBoundary wraps ONLY the chart card itself.
+        RepaintBoundary(
+          key: _chartKey,
+          child: _DailySalesChart(
+            dailySales: reportProvider.dailySales,
+            isLoading: reportProvider.isChartLoading,
+            error: reportProvider.chartError,
+          ),
+        ),
+      ],
+    );
+  }
 }
 
-// --- (No changes are needed for the widgets below this line) ---
-// --- They will be captured as part of the RepaintBoundary's image ---
-
+// --- (No changes are needed for _SummarySection or _TopProductsSection) ---
 class _SummarySection extends StatelessWidget {
   final ReportSummary summary;
   const _SummarySection({required this.summary});
@@ -188,12 +195,13 @@ class _SummarySection extends StatelessWidget {
   }
 }
 
-class _DailySalesSection extends StatelessWidget {
+// Renamed for clarity: This widget is now ONLY the chart itself inside the card.
+class _DailySalesChart extends StatelessWidget {
   final List<DailySale> dailySales;
   final bool isLoading;
   final String? error;
 
-  const _DailySalesSection({
+  const _DailySalesChart({
     required this.dailySales,
     required this.isLoading,
     this.error,
@@ -201,29 +209,16 @@ class _DailySalesSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Revenue (Last 30 Days)',
-          style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 16),
-        Card(
-          elevation: 2,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          clipBehavior: Clip.antiAlias,
-          // The background of the card needs to be explicit for the image capture
-          color: Theme.of(context).cardColor,
-          child: SizedBox(
-            height: 250,
-            width: double.infinity,
-            child: _buildChartContent(context),
-          ),
-        ),
-      ],
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      clipBehavior: Clip.antiAlias,
+      color: Theme.of(context).cardColor,
+      child: SizedBox(
+        height: 250,
+        width: double.infinity,
+        child: _buildChartContent(context),
+      ),
     );
   }
 
@@ -232,20 +227,10 @@ class _DailySalesSection extends StatelessWidget {
       return const Center(child: CircularProgressIndicator());
     }
     if (error != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Text('Could not load chart: $error', textAlign: TextAlign.center),
-        ),
-      );
+      return Center(child: Padding(padding: const EdgeInsets.all(16.0), child: Text('Could not load chart: $error', textAlign: TextAlign.center)));
     }
     if (dailySales.isEmpty) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(16.0),
-          child: Text('No sales data in the last 30 days.'),
-        ),
-      );
+      return const Center(child: Padding(padding: const EdgeInsets.all(16.0), child: Text('No sales data in the last 30 days.')));
     }
 
     final maxRevenue = dailySales.map((sale) => sale.revenue).reduce((a, b) => a > b ? a : b);
@@ -298,8 +283,17 @@ class _DailySalesSection extends StatelessWidget {
               sideTitles: SideTitles(
                 showTitles: true,
                 reservedSize: 40,
+                // --- THE FIX: Smarter Y-axis label formatting ---
                 getTitlesWidget: (value, meta) {
                   if (value == 0 || value >= meta.max) return const Text('');
+                  
+                  // If the max value on the chart is less than 1000,
+                  // show the plain integer value for better precision.
+                  if (meta.max < 1000) {
+                    return Text(value.toInt().toString(), style: const TextStyle(fontSize: 10));
+                  }
+                  
+                  // Otherwise, format as "k" for thousands to save space.
                   return Text('${(value / 1000).toStringAsFixed(0)}k', style: const TextStyle(fontSize: 10));
                 },
               ),
@@ -344,7 +338,7 @@ class _TopProductsSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Top Selling Products', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+        Text('Top Selling Products', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
         const SizedBox(height: 16),
         Card(
           elevation: 2,
