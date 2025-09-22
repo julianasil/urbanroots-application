@@ -48,12 +48,19 @@ class SupabaseJWTAuthentication(authentication.BaseAuthentication):
         # Use the user_metadata from the token for full_name and username if available
         user_metadata = payload.get('user_metadata', {})
 
+        full_name = user_metadata.get('full_name', '').strip()
+
+        name_parts = full_name.split(' ')
+        first_name = name_parts[0]
+        last_name = ' '.join(name_parts[1:]) if len(name_parts) > 1 else ''
+
         user, created = CustomUser.objects.get_or_create(
             id=supabase_user_id,
             defaults={
                 'email': payload.get('email', ''),
                 'username': user_metadata.get('username', payload.get('email')), # Fallback to email
-                'full_name': user_metadata.get('full_name', ''), # Get full_name from metadata
+                'first_name': first_name,
+                'last_name': last_name,
             }
         )
         

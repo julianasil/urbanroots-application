@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/order_provider.dart';
-import '../widgets/order_card.dart'; // We can reuse this card for displaying sales
+import '../widgets/sale_card.dart';
 
 class SellerDashboardScreen extends StatefulWidget {
   const SellerDashboardScreen({super.key});
@@ -16,8 +16,8 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
   void initState() {
     super.initState();
     // Use a post-frame callback to safely fetch data after the first build.
-    // This will run every time the screen is newly created.
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      print("DEBUG: SellerDashboard initState is calling _loadSales...");
       _loadSales();
     });
   }
@@ -33,11 +33,9 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
       appBar: AppBar(
         title: const Text('My Sales'),
       ),
-      // --- THIS IS THE FIX ---
-      // We wrap the body in a Consumer to listen for state changes from the OrderProvider.
       body: Consumer<OrderProvider>(
         builder: (context, orderData, child) {
-          // 1. Check if the provider is currently in a loading state.
+          print("DEBUG: SellerDashboard Consumer is building. Loading: ${orderData.isLoading}, Error: ${orderData.error}, Sales Count: ${orderData.sales.length}");
           if (orderData.isLoading) {
             return const Center(child: CircularProgressIndicator());
           }
@@ -49,9 +47,9 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
           if (orderData.sales.isEmpty) {
             return RefreshIndicator(
               onRefresh: () => _loadSales(),
-              child: Stack( // Stack allows the ListView to be scrollable for the refresh indicator
+              child: Stack(
                 children: [
-                  ListView(), // Dummy ListView
+                  ListView(), // Dummy ListView to make RefreshIndicator work on empty screen
                   const Center(child: Text('You have not received any sales yet.')),
                 ],
               ),
@@ -63,12 +61,11 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
           return RefreshIndicator(
             onRefresh: () => _loadSales(),
             child: ListView.builder(
+              physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.all(16.0),
               itemCount: sales.length,
               itemBuilder: (ctx, i) {
-                // For now, we can reuse the OrderCard.
-                // Later, you might create a custom SaleCard to show buyer info.
-                return OrderCard(order: sales[i], isSellerView: true);
+                return SaleCard(sale: sales[i]); 
               },
             ),
           );

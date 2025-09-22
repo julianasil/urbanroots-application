@@ -6,10 +6,14 @@ import 'package:http/http.dart' as http; // Required for fetchUserProfile
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 import '../models/user_profile.dart';
 import '../services/user_service.dart';
+import '../providers/product_provider.dart';
+import '../providers/order_provider.dart';
 
 class UserProvider with ChangeNotifier {
   final UserService userService;
   late final StreamSubscription<supabase.AuthState> _authStateSubscription;
+  final ProductProvider productProvider;
+  final OrderProvider orderProvider;
 
   // --- NEW: State for the user's detailed profile ---
   UserProfile? _user;
@@ -17,15 +21,15 @@ class UserProvider with ChangeNotifier {
   bool _isLoadingProfiles = false;
   String? _profileError;
   BusinessProfile? _activeBusinessProfile;
+  
 
-  UserProvider({required this.userService}) {
-    // Listen for auth changes to fetch/clear data
+  UserProvider({required this.userService, required this.productProvider, required this.orderProvider}) {
     _authStateSubscription = supabase.Supabase.instance.client.auth.onAuthStateChange.listen((data) {
       final event = data.event;
-      if (event == supabase.AuthChangeEvent.signedIn) {
-        // --- MODIFIED: Fetch both user and business profiles on sign in ---
-        fetchUserProfile();
-        fetchMyBusinessProfiles();
+      
+       if (data.event == supabase.AuthChangeEvent.signedIn) {
+        // When user signs in, trigger the master data fetch.
+        fetchInitialData();
       } 
       else if (event == supabase.AuthChangeEvent.signedOut) {
         // Clear all user-related data
@@ -39,8 +43,7 @@ class UserProvider with ChangeNotifier {
 
     // Initial check on app startup
     if (currentUser != null) {
-      fetchUserProfile();
-      fetchMyBusinessProfiles();
+      fetchInitialData();
     }
   }
 
@@ -58,6 +61,29 @@ class UserProvider with ChangeNotifier {
   bool get isLoadingProfiles => _isLoadingProfiles;
   String? get profileError => _profileError;
   BusinessProfile? get activeBusinessProfile => _activeBusinessProfile;
+
+  Future<void> fetchInitialData() async {
+    _isLoadingProfiles = true;
+    _profileError = null;
+    notifyListeners();
+    try {
+      // 1. Fetch the user's core profile first.
+      await fetchUserProfile();
+      await fetchMyBusinessProfiles();
+
+      // 2. AFTER the user profile is loaded, trigger the other data loads.
+      // We don't need to await these, as their providers will handle loading state.
+      productProvider.loadProducts();
+      orderProvider.fetchAndSetOrders();
+      orderProvider.fetchAndSetSales();
+
+    } catch (e) {
+      _profileError = "Failed to load initial data: ${e.toString()}";
+    } finally {
+      _isLoadingProfiles = false;
+      notifyListeners();
+    }
+  }
 
   // --- NEW: Method to update the user's profile ---
   Future<void> updateUserProfile(Map<String, dynamic> profileData) async {

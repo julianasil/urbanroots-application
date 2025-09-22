@@ -63,10 +63,19 @@ class _OrdersScreenState extends State<OrdersScreen> {
                               ),
                               children: order.items.map((orderItem) {
                                 final productName = orderItem.product?.name ?? 'Product Not Found';
+                                final sellerName = orderItem.sellerProfile?.companyName ?? 'Unknown Seller';
                                 return ListTile(
-                                  // --- FIX #3: Access the product name ---
+                                  leading: orderItem.product?.image != null && orderItem.product!.image!.isNotEmpty
+                                      ? Image.network(
+                                          '${orderItem.product!.image!}',
+                                          width: 50,
+                                          height: 50,
+                                          fit: BoxFit.cover,
+                                        )
+                                      : const SizedBox(width: 50, height: 50, child: Icon(Icons.image)),
                                   title: Text(productName),
-                                  // --- FIX #4: Use 'priceAtPurchase' ---
+                                  // Display the seller's name in the subtitle for clarity
+                                  subtitle: Text('Sold by: $sellerName'),
                                   trailing: Text(
                                     '${orderItem.quantity} x ₱${orderItem.priceAtPurchase.toStringAsFixed(2)}',
                                   ),

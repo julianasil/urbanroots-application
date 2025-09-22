@@ -44,6 +44,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     // Use Consumer widgets to get the latest data from providers and rebuild the UI
     final userProv = Provider.of<UserProvider>(context, listen: false);
     final cartProv = Provider.of<CartProvider>(context);
+    final currentSellerProfileId = userProv.activeBusinessProfile?.profileId;
     
     // Get fullName from the UserProfile object for better consistency
     final fullName = userProv.user?.fullName ?? 'Guest';
@@ -99,7 +100,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 // Use Consumers to ensure these stats update when data changes
                 Consumer2<ProductProvider, OrderProvider>(
                   builder: (context, productData, orderData, child) {
-                    final totalSales = orderData.orders.fold<double>(0.0, (prev, order) => prev + order.totalAmount);
+                     double totalSales = 0.0;
+                    // Go through each sale the seller is a part of.
+                    for (final sale in orderData.sales) {
+                      // Go through each item in that sale.
+                      for (final item in sale.items) {
+                        // If the item's seller profile matches the logged-in user's profile...
+                        if (item.sellerProfile?.profileId == currentSellerProfileId) {
+                          // ...add the value of that item to the total.
+                          totalSales += item.priceAtPurchase * item.quantity;
+                        }
+                      }
+                    }
                     return GridView.count(
                       crossAxisCount: 2,
                       crossAxisSpacing: 12,

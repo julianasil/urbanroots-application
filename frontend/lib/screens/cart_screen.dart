@@ -9,6 +9,7 @@ import '../providers/product_provider.dart';
 import '../screens/orders_screen.dart';
 import '../widgets/product_image.dart';
 import '../providers/order_provider.dart';
+//import '../providers/user_provider.dart';
 
 class CartScreen extends StatelessWidget {
   const CartScreen({Key? key}) : super(key: key);
@@ -18,8 +19,30 @@ class CartScreen extends StatelessWidget {
 
     final navigator = Navigator.of(context);
     final scaffoldMessenger = ScaffoldMessenger.of(context);
+    //final userProvider = Provider.of<UserProvider>(context, listen: false);
 
-    // 1. Show a loading indicator.
+    //if (userProvider.activeBusinessProfile == null) {
+      // If no profile, show a helpful dialog instead of trying to checkout.
+      /*showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Profile Incomplete'),
+          content: const Text('Please create or select a business profile from your account screen before placing an order.'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(ctx).pop(); // Close the dialog
+                // TODO: You could navigate them directly to the Account tab here
+              },
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+      return; // Stop the checkout process
+    }*/
+
+    // 3. If the check passes, proceed with the existing checkout logic.
     showDialog(
       context: context,
       barrierDismissible: false,

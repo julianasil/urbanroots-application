@@ -23,6 +23,7 @@ INSTALLED_APPS = [
     'users.apps.UsersConfig',
     'products.apps.ProductsConfig',
     'orders.apps.OrdersConfig',
+    'shipments.apps.ShipmentsConfig',
     #'inventory.apps.InventoryConfig',
 
     # Django Built-in Apps

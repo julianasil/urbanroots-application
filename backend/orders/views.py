@@ -31,8 +31,6 @@ class OrderListCreateView(generics.ListCreateAPIView):
         cart_items = serializer.validated_data['cart_items']
         shipping_address = serializer.validated_data['shipping_address']
         buyer_profile = request.user.business_profiles.first()
-        if not buyer_profile:
-            return Response({'error': 'User has no business profile to place an order.'}, status=status.HTTP_400_BAD_REQUEST)
         
         try:
             total_amount = 0
@@ -53,7 +51,15 @@ class OrderListCreateView(generics.ListCreateAPIView):
                 products_to_update.append(product)
 
                 order_items_to_create.append(
-                    OrderItem(product=product, quantity=quantity, price_at_purchase=price)
+                    OrderItem(
+                        product=product,
+                        # --- HARMONIZATION FIX ---
+                        # Explicitly save the seller's profile with the line item.
+                        seller_profile=product.seller_profile, 
+                        quantity=quantity,
+                        price_at_purchase=product.price
+                        # The 'status' field on OrderItem defaults to 'processing'
+                    )
                 )
 
             order = Order.objects.create(
@@ -73,7 +79,7 @@ class OrderListCreateView(generics.ListCreateAPIView):
             return Response(final_serializer.data, status=status.HTTP_201_CREATED)
 
         except Product.DoesNotExist:
-            return Response({'error': 'A product in your cart was not found.'}, status=status.HTTP_404_NOT_FOUND)
+                return Response({'error': f"Product ID {item_data['product_id']} not found."}, status=status.HTTP_404_NOT_FOUND)
         except serializers.ValidationError as e:
             return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
         
@@ -203,3 +209,41 @@ class SaleDetailView(generics.RetrieveAPIView):
 
         # The seller is only allowed to see orders from that list.
         return Order.objects.filter(pk__in=order_ids_with_seller_items)
+    
+class ManageSaleView(APIView):
+    """
+    Allows a seller to manage the status and tracking info of an order
+    that contains their products.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, pk, format=None):
+        # The 'pk' is the order_id
+        new_status = request.data.get('status')
+        tracking_number = request.data.get('tracking_number')
+
+        seller_profile = request.user.business_profiles.first()
+        if not seller_profile:
+            return Response({'error': 'User is not a seller.'}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            # Security Check: Ensure the order actually contains items from this seller.
+            order = Order.objects.get(pk=pk, items__product__seller_profile=seller_profile)
+        except Order.DoesNotExist:
+            return Response({'error': 'Order not found or you are not the seller.'}, status=status.HTTP_404_NOT_FOUND)
+
+        # --- Business Logic for Status Transitions ---
+        if new_status:
+            if new_status == 'processing' and order.status == 'pending':
+                    order.status = 'processing'
+            elif new_status == 'shipped' and order.status == 'processing':
+                    order.status = 'shipped'
+            else:
+                return Response({'error': f'Invalid status transition from {order.status} to {new_status}.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if tracking_number:
+            order.tracking_number = tracking_number
+
+        order.save()
+        serializer = OrderSerializer(order)
+        return Response(serializer.data, status=status.HTTP_200_OK)

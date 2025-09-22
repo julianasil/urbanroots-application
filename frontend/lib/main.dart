@@ -20,23 +20,29 @@ Future<void> main() async {
     anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVzbm54eG9lanVianJ1a3BpbXNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQwMTA5NTIsImV4cCI6MjA2OTU4Njk1Mn0.pgPf1tyMgu8gKYo7HdKQkhYVAZoxhrBygkgPd1XE0kY',
   );
 
-  final productService = ProductService();
+  //final productService = ProductService();
 
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(
-          create: (ctx) => UserProvider(
-            userService: UserService(),
-          ),
-        ),
-        ChangeNotifierProvider(
-          create: (_) => ProductProvider(service: productService),
-        ),
-        ChangeNotifierProvider(
-          create: (_) => CartProvider(userId: 'temp_user_id'),
-        ),
+        ChangeNotifierProvider(create: (_) => ProductProvider(service: ProductService())),
         ChangeNotifierProvider(create: (_) => OrderProvider()),
+        ChangeNotifierProvider(create: (_) => CartProvider(userId: 'temp_user_id')),
+        
+        // 2. The ProxyProvider creates a provider that depends on others.
+        // It listens to ProductProvider and OrderProvider and provides a UserProvider.
+        ChangeNotifierProxyProvider2<ProductProvider, OrderProvider, UserProvider>(
+          // This is called once to create the initial UserProvider instance.
+          create: (context) => UserProvider(
+            userService: UserService(),
+            // Get the other providers from the context.
+            productProvider: Provider.of<ProductProvider>(context, listen: false),
+            orderProvider: Provider.of<OrderProvider>(context, listen: false),
+          ),
+          // This is called whenever ProductProvider or OrderProvider updates.
+          // It provides the existing UserProvider instance to the widget tree.
+          update: (context, productProv, orderProv, userProv) => userProv!,
+        ),
       ],
       child: const MyApp(),
     ),

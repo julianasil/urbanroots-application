@@ -2,25 +2,28 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart'; // Import for launching URLs
 import '../models/order.dart';
 import '../providers/order_provider.dart';
+import '../services/api_service.dart';
 import '../screens/order_detail_screen.dart';
 
 class OrderCard extends StatelessWidget {
   final Order order;
-  final bool isSellerView;
 
-  const OrderCard({super.key, required this.order, this.isSellerView = false});
+  // Constructor is simplified; it's now only for buyers.
+  const OrderCard({super.key, required this.order});
 
   // Helper to get a display-friendly status title
   String get _statusTitle {
     switch (order.status.toLowerCase()) {
-      case 'pending': return "PENDING";
-      case 'confirmed': return "CONFIRMED";
-      case 'shipped': return "SHIPPED";
-      case 'completed': return "DELIVERED";
-      case 'cancelled': return "CANCELLED";
-      default: return "ORDERED";
+      case 'pending': return "Order Placed";
+      case 'confirmed': return "Processing";
+      case 'processing': return "Processing";
+      case 'shipped': return "Shipped";
+      case 'completed': return "Delivered";
+      case 'cancelled': return "Cancelled";
+      default: return "Ordered";
     }
   }
 
@@ -30,19 +33,28 @@ class OrderCard extends StatelessWidget {
       case 'completed': return Colors.green;
       case 'shipped': return Colors.blue;
       case 'cancelled': return Colors.red;
-      default: return Colors.orange;
+      case 'pending': return Colors.orange;
+      default: return Colors.grey;
+    }
+  }
+
+  // Helper to launch the tracking URL
+  Future<void> _trackParcel(BuildContext context, String trackingNumber, String? trackingUrlTemplate) async {
+    if (trackingUrlTemplate == null || trackingUrlTemplate.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Tracking URL not available for this provider.')));
+      return;
+    }
+    final Uri url = Uri.parse('$trackingUrlTemplate$trackingNumber');
+    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not open tracking page.')));
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Get the first item in the order to show its image as a preview
-    final firstItemImage = order.items.isNotEmpty 
-      ? order.items.first.product?.image 
-      : null;
-
-    final String? fullImageUrl = firstItemImage != null && firstItemImage.isNotEmpty
-      ? 'http://127.0.0.1:8000$firstItemImage'
+    final firstItemImage = order.items.isNotEmpty ? order.items.first.product?.image : null;
+    final fullImageUrl = firstItemImage != null && firstItemImage.isNotEmpty
+      ? (firstItemImage.startsWith('http') ? firstItemImage : 'http://127.0.0.1:8000$firstItemImage')
       : null;
 
     return Card(
@@ -57,13 +69,13 @@ class OrderCard extends StatelessWidget {
             // --- Status Header ---
             Text('ORDER STATUS:', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
             const SizedBox(height: 4),
-            Text(_statusTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            Text(_statusTitle.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
             const SizedBox(height: 4),
             Text(
               'Order Date: ${DateFormat('dd MMM, yyyy').format(order.orderDate)}',
               style: TextStyle(color: _statusColor, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 12),
+            const Divider(height: 24),
 
             // --- Item Preview and Details ---
             Row(
@@ -74,11 +86,11 @@ class OrderCard extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: Colors.grey[200],
                     borderRadius: BorderRadius.circular(8),
-                    image: firstItemImage != null
-                        ? DecorationImage(image: NetworkImage(firstItemImage), fit: BoxFit.cover)
+                    image: fullImageUrl != null
+                        ? DecorationImage(image: NetworkImage(fullImageUrl), fit: BoxFit.cover)
                         : null,
                   ),
-                  child: firstItemImage == null ? const Icon(Icons.image_not_supported, color: Colors.grey) : null,
+                  child: fullImageUrl == null ? const Icon(Icons.image_not_supported, color: Colors.grey) : null,
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -93,82 +105,100 @@ class OrderCard extends StatelessWidget {
                 ),
               ],
             ),
-            const Divider(height: 24),
+            const SizedBox(height: 12),
 
             // --- Action Buttons ---
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () { 
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (ctx) => OrderDetailScreen(
-                            orderId: order.orderId,
-                            isSellerView: isSellerView,
-                          ),
-                        ),
-                      );
-                    },
-                    child: const Text('View Order'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                if (order.status.toLowerCase() == 'shipped' || order.status.toLowerCase() == 'completed')
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () { /* TODO: Navigate to Tracking Page */ },
-                      child: const Text('TRACK PARCEL'),
-                    ),
-                  )
-                else if (order.status.toLowerCase() == 'pending')
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () async {
-                        // Show a confirmation dialog before proceeding
-                        final confirm = await showDialog<bool>(
-                          context: context,
-                          builder: (ctx) => AlertDialog(
-                            title: const Text('Are you sure?'),
-                            content: const Text('Do you want to cancel this order? This action cannot be undone.'),
-                            actions: [
-                              TextButton(child: const Text('No'), onPressed: () => Navigator.of(ctx).pop(false)),
-                              TextButton(
-                                child: const Text('Yes, Cancel'),
-                                onPressed: () => Navigator.of(ctx).pop(true),
-                                style: TextButton.styleFrom(foregroundColor: Colors.red),
-                              ),
-                            ],
-                          ),
-                        );
-
-                        // If the user did not confirm, do nothing.
-                        if (confirm != true) return;
-
-                        // If confirmed, call the provider to cancel the order.
-                        try {
-                          await Provider.of<OrderProvider>(context, listen: false)
-                              .cancelOrder(order.orderId);
-                          
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Order has been cancelled.'), backgroundColor: Colors.green),
-                          );
-                        } catch (e) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
-                          );
-                        }
-                      },
-                      style: OutlinedButton.styleFrom(foregroundColor: Colors.red, side: const BorderSide(color: Colors.red)),
-                      child: const Text('CANCEL ORDER'),
-                    ),
-                  ),
-              ],
-            ),
+            _buildActionButtons(context),
           ],
         ),
       ),
+    );
+  }
+  
+  // --- Helper widget for BUYER-specific action buttons ---
+  Widget _buildActionButtons(BuildContext context) {
+    final status = order.status.toLowerCase();
+    // For simplicity, we'll still assume the first shipment is the primary one
+    final shipment = order.shipments.isNotEmpty ? order.shipments.first : null;
+
+    // --- PENDING State ---
+    if (status == 'pending') {
+      return Row(
+        children: [
+          Expanded(child: OutlinedButton(onPressed: () { /* Navigate to detail */ }, child: const Text('VIEW ORDER'))),
+          const SizedBox(width: 12),
+          Expanded(
+            child: OutlinedButton(
+              onPressed: () async { /* ... Your existing cancel logic ... */ },
+              style: OutlinedButton.styleFrom(foregroundColor: Colors.red, side: const BorderSide(color: Colors.red)),
+              child: const Text('CANCEL ORDER'),
+            ),
+          ),
+        ],
+      );
+    }
+
+    // --- SHIPPED State ---
+    if (status == 'shipped' && shipment != null) {
+      return Column( // Use a Column for multiple actions
+        children: [
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () async {
+                try {
+                  await ApiService().confirmDelivery(shipment.shipmentId);
+                  await Provider.of<OrderProvider>(context, listen: false).fetchAndSetOrders();
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Delivery Confirmed!'), backgroundColor: Colors.green));
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: Colors.red));
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).primaryColor),
+              child: const Text('CONFIRM DELIVERY'),
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: () => _trackParcel(context, shipment.trackingNumber!, shipment.logisticsProvider?.trackingUrlTemplate),
+              child: const Text('TRACK PARCEL'),
+            ),
+          ),
+        ],
+      );
+    }
+
+    // --- DELIVERED / COMPLETED State ---
+    if ((status == 'completed' || status == 'delivered') && shipment != null) {
+       return Row(
+        children: [
+          Expanded(child: OutlinedButton(onPressed: () { /* Navigate to detail */ }, child: const Text('VIEW ORDER'))),
+          const SizedBox(width: 12),
+          Expanded(
+            child: OutlinedButton(
+              onPressed: () => _trackParcel(context, shipment.trackingNumber!, shipment.logisticsProvider?.trackingUrlTemplate),
+              child: const Text('TRACK PARCEL'),
+            ),
+          ),
+        ],
+      );
+    }
+
+    // --- PROCESSING / CANCELLED / OTHER State ---
+    // For all other cases, just show a single "View Order" button.
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton(
+            onPressed: () {
+              Navigator.of(context).push(MaterialPageRoute(builder: (ctx) => OrderDetailScreen(orderId: order.orderId)));
+            },
+            child: const Text('VIEW ORDER'),
+          ),
+        ),
+      ],
     );
   }
 }

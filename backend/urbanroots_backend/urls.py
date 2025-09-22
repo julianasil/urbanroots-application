@@ -11,6 +11,7 @@ urlpatterns = [
     path('api/products/', include('products.urls')),
     path('api/orders/', include('orders.urls')),
     path('api/users/', include('users.urls')),
+    path('api/shipments/', include('shipments.urls')),
 ]
 
 # This tells Django to serve files from MEDIA_ROOT during development.
