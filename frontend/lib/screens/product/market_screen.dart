@@ -2,13 +2,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/product.dart';
+import '../../models/user_profile.dart'; // Import this to have access to the models
 import '../../providers/cart_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../widgets/product_card.dart';
 import 'product_detail_screen.dart';
 import 'edit_product_screen.dart';
-import '../../providers/cart_provider.dart'; 
 import '../cart_screen.dart'; 
 
 class MarketScreen extends StatefulWidget {
@@ -35,6 +35,47 @@ class _MarketScreenState extends State<MarketScreen> {
   Future<void> _refreshData(BuildContext context) async {
     // This method is called by the RefreshIndicator.
     await Provider.of<ProductProvider>(context, listen: false).loadProducts();
+  }
+
+  // --- NEW METHOD: DELETE CONFIRMATION DIALOG ---
+  // This method shows a confirmation dialog before deleting a product.
+  void _showDeleteConfirmation(BuildContext context, Product product) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Are you sure?'),
+        content: Text('Do you want to permanently delete "${product.name}"? This action cannot be undone.'),
+        actions: [
+          TextButton(
+            child: const Text('Cancel'),
+            onPressed: () {
+              Navigator.of(ctx).pop(); // Close the dialog
+            },
+          ),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+            onPressed: () async {
+              Navigator.of(ctx).pop(); // Close the dialog before processing
+              try {
+                // Call the provider to handle the deletion logic from the backend.
+                await Provider.of<ProductProvider>(context, listen: false)
+                    .deleteProduct(product.productId);
+                
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('"${product.name}" was deleted successfully.')),
+                );
+              } catch (error) {
+                // Show an error message if the deletion fails for any reason.
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Failed to delete product: $error')),
+                );
+              }
+            },
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -103,6 +144,15 @@ class _MarketScreenState extends State<MarketScreen> {
               ),
               itemBuilder: (ctx, i) {
                 final product = productProvider.items[i];
+                final userProvider = Provider.of<UserProvider>(context, listen: false);
+
+                // --- CORRECTED LOGIC: CHECK FOR PRODUCT OWNERSHIP ---
+                // Use the correct property names from your models:
+                // 1. '.profileId' from the BusinessProfile object.
+                // 2. '.sellerProfile?.profileId' from the Product object.
+                final activeProfileId = userProvider.activeBusinessProfile?.profileId;
+                final bool isOwner = activeProfileId != null && 
+                                      product.sellerProfile?.profileId == activeProfileId;
                 
                 return ProductCard(
                   product: product,
@@ -130,6 +180,19 @@ class _MarketScreenState extends State<MarketScreen> {
                       ),
                     );
                   },
+                  // --- NEW PROPERTIES: PASSING ADMIN ACTIONS ---
+                  // Pass the ownership flag and the callback functions down to the ProductCard.
+                  showAdminActions: isOwner,
+                  onEdit: () {
+                    // Navigate to the Edit screen, passing the existing product data.
+                    Navigator.of(context).push(MaterialPageRoute(
+                      builder: (ctx) => EditProductScreen(product: product),
+                    ));
+                  },
+                  onDelete: () {
+                    // Show the confirmation dialog before deleting.
+                    _showDeleteConfirmation(context, product);
+                  },
                 );
               },
             );
@@ -139,7 +202,7 @@ class _MarketScreenState extends State<MarketScreen> {
     );
   }
 
-  // --- HELPER WIDGETS (No changes needed here) ---
+  // --- HELPER WIDGETS (No changes needed in these) ---
 
   Widget _buildFab(BuildContext context) {
     return Consumer<UserProvider>(

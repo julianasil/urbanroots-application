@@ -25,6 +25,7 @@ INSTALLED_APPS = [
     'orders.apps.OrdersConfig',
     'shipments.apps.ShipmentsConfig',
     #'inventory.apps.InventoryConfig',
+    'reports.apps.ReportsConfig',
 
     # Django Built-in Apps
     'django.contrib.admin',
